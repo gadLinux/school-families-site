@@ -1,0 +1,242 @@
+---
+# Prueba local de la configuración de nginx, sin tocar el servidor.
+# Renderiza las MISMAS plantillas del rol nginx_proxy y las arranca en Docker
+# (nginx 1.28, la versión de Ubuntu 26.04) con un certificado autofirmado y un
+# contenedor "otra-web-stub" que simula a la otra web.
+#
+#   ansible-playbook tests/test-local.yml                  # probar
+#   ansible-playbook tests/test-local.yml -e keep=true     # y dejarlo levantado
+#
+# Con keep=true: http://localhost:8088 y https://localhost:8448 (usa --resolve
+# o /etc/hosts para probar con los nombres reales).
+- name: Prueba local de nginx
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../inventory/group_vars/all/main.yml
+    - ../inventory/group_vars/all/pocketbase.yml
+    - ../roles/nginx_proxy/defaults/main.yml
+  vars:
+    keep: false
+    test_dir: "{{ playbook_dir }}/../.artifacts/nginx-test"
+    web_src_dir: "{{ playbook_dir }}/../../web"
+    net: fdv-test
+    http_port: 8088
+    https_port: 8448
+    site_cert_ready: true
+    otra_web_cert_ready: false
+    ansible_managed: "Generado por tests/test-local.yml"
+  tasks:
+    # set_fact: vars_files tiene más precedencia que vars de la play.
+    - name: Apuntar la otra web y PocketBase a contenedores stub
+      ansible.builtin.set_fact:
+        otra_web_enabled: "{{ probar_otra_web | default(true) | bool }}"
+        otra_web_domain: otra-web.example.org
+        otra_web_http_bind: "fdv-otra-web-stub:80"
+        pb_listen: "fdv-pb-stub:80"
+
+    - name: Compilar la web
+      ansible.builtin.command: npm run build
+      args:
+        chdir: "{{ web_src_dir }}"
+      changed_when: false
+
+    - name: Vaciar la configuración de pruebas anteriores
+      ansible.builtin.file:
+        path: "{{ test_dir }}/{{ item }}"
+        state: absent
+      loop: [conf.d, snippets]
+
+    - name: Crear carpetas de prueba
+      ansible.builtin.file:
+        path: "{{ test_dir }}/{{ item }}"
+        state: directory
+        mode: "0755"
+      loop: [conf.d, snippets, "letsencrypt/live/{{ site_domain }}", otra-web-stub, pb-stub/api, certbot]
+
+    - name: Renderizar fragmentos
+      ansible.builtin.template:
+        src: "../roles/nginx_proxy/templates/snippets/{{ item }}.j2"
+        dest: "{{ test_dir }}/snippets/{{ item }}"
+        mode: "0644"
+      loop: [acme-challenge.conf, ssl-params.conf, security-headers.conf, proxy-otra-web.conf]
+
+    # Mismo criterio que roles/nginx_proxy/tasks/vhosts.yml: el vhost de
+    # la otra web solo se renderiza cuando otra_web_enabled está activo.
+    - name: Renderizar virtual hosts
+      ansible.builtin.template:
+        src: "../roles/nginx_proxy/templates/sites/{{ item.src }}"
+        dest: "{{ test_dir }}/conf.d/{{ item.name }}.conf"
+        mode: "0644"
+      loop: >-
+        {{ nginx_vhosts
+           + (otra_web_enabled | ternary(
+               [{'name': 'otra-web', 'src': 'otra-web.conf.j2'}], [])) }}
+
+    - name: Certificado autofirmado
+      ansible.builtin.command: >-
+        openssl req -x509 -nodes -newkey rsa:2048 -days 7
+        -subj "/CN={{ site_domain }}"
+        -addext "subjectAltName=DNS:{{ ([site_domain] + site_aliases) | join(',DNS:') }}"
+        -keyout {{ test_dir }}/letsencrypt/live/{{ site_domain }}/privkey.pem
+        -out {{ test_dir }}/letsencrypt/live/{{ site_domain }}/fullchain.pem
+      args:
+        creates: "{{ test_dir }}/letsencrypt/live/{{ site_domain }}/fullchain.pem"
+
+    - name: Página del stub de la otra web
+      ansible.builtin.copy:
+        dest: "{{ test_dir }}/otra-web-stub/index.html"
+        content: "OTRA WEB STUB\n"
+        mode: "0644"
+
+    - name: Respuesta del stub de PocketBase
+      ansible.builtin.copy:
+        dest: "{{ test_dir }}/pb-stub/api/health"
+        content: "PB STUB\n"
+        mode: "0644"
+
+    - name: Limpiar contenedores de pruebas anteriores
+      ansible.builtin.command: docker rm -f fdv-nginx fdv-otra-web-stub fdv-pb-stub
+      failed_when: false
+      changed_when: false
+
+    - name: Crear red Docker
+      ansible.builtin.command: docker network create {{ net }}
+      register: netc
+      failed_when: netc.rc != 0 and 'already exists' not in netc.stderr
+      changed_when: netc.rc == 0
+
+    - name: Arrancar stub de la otra web
+      ansible.builtin.command: >-
+        docker run -d --name fdv-otra-web-stub --network {{ net }}
+        -v {{ test_dir }}/otra-web-stub:/usr/share/nginx/html:ro nginx:1.28-alpine
+      changed_when: true
+
+    - name: Arrancar stub de PocketBase
+      ansible.builtin.command: >-
+        docker run -d --name fdv-pb-stub --network {{ net }}
+        -v {{ test_dir }}/pb-stub:/usr/share/nginx/html:ro nginx:1.28-alpine
+      changed_when: true
+
+    - name: Arrancar nginx con la configuración renderizada
+      ansible.builtin.command: >-
+        docker run -d --name fdv-nginx --network {{ net }}
+        -p {{ http_port }}:80 -p {{ https_port }}:443
+        -v {{ test_dir }}/conf.d:/etc/nginx/conf.d:ro
+        -v {{ test_dir }}/snippets:/etc/nginx/snippets:ro
+        -v {{ test_dir }}/letsencrypt:/etc/letsencrypt:ro
+        -v {{ test_dir }}/certbot:{{ certbot_webroot }}:ro
+        -v {{ web_src_dir }}/dist:{{ site_root }}/current:ro
+        nginx:1.28-alpine
+      changed_when: true
+
+    - name: Validar sintaxis (nginx -t)
+      ansible.builtin.command: docker exec fdv-nginx nginx -t
+      changed_when: false
+      retries: 5
+      delay: 1
+      register: nginx_t
+      until: nginx_t.rc == 0
+
+    - name: Comprobaciones HTTP/HTTPS
+      ansible.builtin.command: >-
+        curl -sk -o /dev/null -w '%{http_code} %{redirect_url}'
+        --resolve {{ item.host }}:{{ http_port }}:127.0.0.1
+        --resolve {{ item.host }}:{{ https_port }}:127.0.0.1
+        {{ item.url }}
+      loop:
+        - name: "HTTP dominio → HTTPS"
+          host: "{{ site_domain }}"
+          url: "http://{{ site_domain }}:{{ http_port }}/"
+          expect: "301 https://{{ site_domain }}/"
+        - name: "HTTP www → HTTPS"
+          host: "www.{{ site_domain }}"
+          url: "http://www.{{ site_domain }}:{{ http_port }}/"
+          expect: "301 https://{{ site_domain }}/"
+        - name: "HTTPS www → dominio"
+          host: "www.{{ site_domain }}"
+          url: "https://www.{{ site_domain }}:{{ https_port }}/"
+          expect: "301 https://{{ site_domain }}/"
+        - name: "HTTPS dominio → web"
+          host: "{{ site_domain }}"
+          url: "https://{{ site_domain }}:{{ https_port }}/"
+          expect: "200 "
+        - name: "HTTPS 404 propio"
+          host: "{{ site_domain }}"
+          url: "https://{{ site_domain }}:{{ https_port }}/no-existe"
+          expect: "404 "
+        - name: "ACME por HTTP sin redirección"
+          host: "{{ site_domain }}"
+          url: "http://{{ site_domain }}:{{ http_port }}/.well-known/acme-challenge/x"
+          expect: "404 "
+        - name: "Dominio de la otra web → su contenedor"
+          otra: true
+          host: "{{ otra_web_domain }}"
+          url: "http://{{ otra_web_domain }}:{{ http_port }}/"
+          expect: "200 "
+        # Mismo criterio que default.conf.j2: con otra web, los Host desconocidos
+        # van a ella (como antes de este proyecto); sin ella, 444.
+        - name: "Host desconocido → {{ otra_web_enabled | ternary('otra web', '444 (conexión cortada)') }}"
+          host: "otro.example"
+          url: "http://otro.example:{{ http_port }}/"
+          expect: "{{ otra_web_enabled | ternary('200 ', '000 ') }}"
+        - name: "Otra web por HTTP, sin redirigir a HTTPS"
+          otra: true
+          host: "{{ otra_web_domain }}"
+          url: "http://{{ otra_web_domain }}:{{ http_port }}/.well-known/acme-challenge/x"
+          expect: "404 "
+        - name: "API de la web → PocketBase"
+          host: "{{ site_domain }}"
+          url: "https://{{ site_domain }}:{{ https_port }}/api/health"
+          expect: "200 "
+        - name: "Panel de PocketBase no expuesto"
+          host: "{{ site_domain }}"
+          url: "https://{{ site_domain }}:{{ https_port }}/_/"
+          expect: "404 "
+      loop_control:
+        label: "{{ item.name }}"
+      when: otra_web_enabled or not (item.otra | default(false))
+      register: checks
+      changed_when: false
+      failed_when: checks.stdout != item.expect
+
+    - name: El contenido de la otra web viene de su contenedor
+      ansible.builtin.command: >-
+        curl -s --resolve {{ otra_web_domain }}:{{ http_port }}:127.0.0.1
+        http://{{ otra_web_domain }}:{{ http_port }}/
+      register: otra_web_body
+      changed_when: false
+      failed_when: "'OTRA WEB STUB' not in otra_web_body.stdout"
+      when: otra_web_enabled
+
+    - name: /api llega a PocketBase
+      ansible.builtin.command: >-
+        curl -sk --resolve {{ site_domain }}:{{ https_port }}:127.0.0.1
+        https://{{ site_domain }}:{{ https_port }}/api/health
+      register: pb_body
+      changed_when: false
+      failed_when: "'PB STUB' not in pb_body.stdout"
+
+    - name: HTTPS con Host desconocido rechaza el handshake
+      ansible.builtin.command: >-
+        curl -sk --resolve otro.example:{{ https_port }}:127.0.0.1
+        https://otro.example:{{ https_port }}/
+      register: unknown_tls
+      changed_when: false
+      failed_when: unknown_tls.rc == 0
+
+    - name: Cabeceras de seguridad en la web
+      ansible.builtin.command: >-
+        curl -skI --resolve {{ site_domain }}:{{ https_port }}:127.0.0.1
+        https://{{ site_domain }}:{{ https_port }}/
+      register: headers
+      changed_when: false
+      failed_when: >-
+        'strict-transport-security' not in headers.stdout | lower or
+        'content-security-policy' not in headers.stdout | lower
+
+    - name: Parar contenedores de prueba
+      ansible.builtin.command: docker rm -f fdv-nginx fdv-otra-web-stub fdv-pb-stub
+      changed_when: true
+      when: not keep | bool

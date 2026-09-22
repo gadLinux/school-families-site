@@ -1,0 +1,21 @@
+---
+# ── Sitio ──────────────────────────────────────────────────────────────
+site_domain: familiasdiegovelazquez.es
+site_aliases:
+  - www.familiasdiegovelazquez.es
+admin_email: familias.diego.velazquez@gmail.com  # avisos de Let's Encrypt
+
+site_root: /srv/familiasdiegovelazquez
+site_keep_releases: 5
+# Ruta local (desde ansible/) al proyecto Astro
+web_src_dir: "{{ playbook_dir }}/../../web"
+
+# ── Proxy de entrada (nginx en el host) ────────────────────────────────
+certbot_webroot: /var/www/certbot
+
+# ── Convivencia con otra web del mismo servidor (opcional) ─────────────
+# Si el servidor aloja otra web que hoy ocupa 80/443, el nginx del host puede
+# atender los dos dominios y reenviarle el suyo. Sus datos (dominio, rutas,
+# contenedor) son privados: van en otra_web.yml, que no se sube al
+# repositorio (plantilla: ansible/examples/otra_web.yml). Por defecto, desactivada
+# (valores genéricos en roles/nginx_proxy/defaults/main.yml).

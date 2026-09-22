@@ -1,0 +1,34 @@
+# Documentación privada del proyecto (no se publica)
+/CONCEPTO.md
+/privado/
+
+# Node / Astro
+node_modules/
+web/dist/
+web/.astro/
+*.log
+
+# Entornos y secretos
+.env
+.env.*
+!.env.example
+ansible/.vault_pass*
+ansible/**/*.retry
+ansible/.artifacts/
+
+# PocketBase (fase 3)
+pb_data/
+
+# Sistema / editores
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# PocketBase binary (downloaded by pb/dev.sh)
+/pb/bin/
+
+# Ansible: datos privados del servidor (plantillas en ansible/examples/)
+ansible/inventory/production.yml
+ansible/inventory/group_vars/all/otra_web.yml
+ansible/inventory/group_vars/all/vault.yml

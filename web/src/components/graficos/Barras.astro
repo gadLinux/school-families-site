@@ -1,0 +1,125 @@
+---
+/**
+ * Barras agrupadas en SVG, generadas en compilación (sin JS en el navegador).
+ * El eje empieza siempre en 0 para no exagerar diferencias. Cada barra lleva
+ * su valor encima, así no hace falta leer el eje.
+ */
+export interface SerieBarras {
+  nombre: string;
+  color: string;
+  valores: (number | null)[];
+  /** Serie estimada: barra rayada y borde discontinuo. */
+  estimada?: boolean;
+}
+
+interface Props {
+  id: string;
+  titulo: string;
+  categorias: string[];
+  series: SerieBarras[];
+  max: number;
+  formato?: (v: number) => string;
+}
+
+const { id, titulo, categorias, series, max, formato = (v: number) => String(v) } = Astro.props;
+
+const ancho = 640;
+const alto = 300;
+const margen = { arriba: 28, abajo: 40, izq: 8, der: 8 };
+const zona = ancho - margen.izq - margen.der;
+const altoZona = alto - margen.arriba - margen.abajo;
+const anchoGrupo = zona / categorias.length;
+const hueco = anchoGrupo * 0.22;
+const anchoBarra = (anchoGrupo - hueco) / series.length;
+const y = (v: number) => margen.arriba + altoZona * (1 - v / max);
+---
+
+<svg
+  class="grafico"
+  viewBox={`0 0 ${ancho} ${alto}`}
+  role="img"
+  aria-labelledby={`${id}-t`}
+>
+  <title id={`${id}-t`}>{titulo}</title>
+  <defs>
+    {
+      series
+        .filter((s) => s.estimada)
+        .map((s, i) => (
+          <pattern id={`${id}-rayas-${i}`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="8" height="8" fill={s.color} opacity="0.25" />
+            <line x1="0" y1="0" x2="0" y2="8" stroke={s.color} stroke-width="4" />
+          </pattern>
+        ))
+    }
+  </defs>
+  <line class="grafico__base" x1={margen.izq} x2={ancho - margen.der} y1={y(0)} y2={y(0)} />
+  {
+    categorias.map((cat, c) => {
+      const x0 = margen.izq + c * anchoGrupo + hueco / 2;
+      return (
+        <g>
+          {series.map((s, i) => {
+            const v = s.valores[c];
+            if (v === null || v === undefined) return null;
+            const x = x0 + i * anchoBarra;
+            const indiceRayas = series.filter((t) => t.estimada).indexOf(s);
+            return (
+              <g>
+                <rect
+                  x={x + 2}
+                  y={y(v)}
+                  width={anchoBarra - 4}
+                  height={y(0) - y(v)}
+                  rx="3"
+                  fill={s.estimada ? `url(#${id}-rayas-${indiceRayas})` : s.color}
+                  stroke={s.estimada ? s.color : 'none'}
+                  stroke-dasharray={s.estimada ? '5 3' : undefined}
+                  stroke-width="1.5"
+                />
+                <text class="grafico__valor" x={x + anchoBarra / 2} y={y(v) - 7} text-anchor="middle">
+                  {s.estimada ? '~' : ''}
+                  {formato(v)}
+                </text>
+              </g>
+            );
+          })}
+          <text class="grafico__cat" x={x0 + (anchoGrupo - hueco) / 2} y={alto - 14} text-anchor="middle">
+            {cat}
+          </text>
+        </g>
+      );
+    })
+  }
+</svg>
+
+<style>
+  .grafico {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-body);
+  }
+  .grafico__base {
+    stroke: var(--muted);
+    stroke-width: 1;
+  }
+  .grafico__valor {
+    font-size: 15px;
+    font-weight: 700;
+    fill: var(--text);
+  }
+  .grafico__cat {
+    font-size: 14px;
+    fill: var(--muted);
+  }
+  /* El SVG se escala entero: en móvil se compensa el tamaño del texto. */
+  @media (max-width: 599px) {
+    .grafico__valor {
+      font-size: 24px;
+    }
+    .grafico__cat {
+      font-size: 19px;
+    }
+  }
+</style>

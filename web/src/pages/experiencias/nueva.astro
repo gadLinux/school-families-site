@@ -1,0 +1,620 @@
+---
+import Base from '../../layouts/Base.astro';
+import { categorias, etapas } from '../../data/categorias';
+
+// Cursos para elegir: el actual (empieza en septiembre) y los cuatro anteriores.
+const hoy = new Date();
+const inicio = hoy.getMonth() >= 8 ? hoy.getFullYear() : hoy.getFullYear() - 1;
+const cursos = Array.from({ length: 5 }, (_, i) => `${inicio - i}-${inicio - i + 1}`);
+---
+
+<Base title="Cuenta tu experiencia" description="Comparte con otras familias lo que has vivido en el instituto.">
+  <section class="container editor">
+    <a class="volver" href="/experiencias">← Todas las experiencias</a>
+    <h1>Cuenta tu experiencia</h1>
+    <p class="intro__lead">
+      Cuéntalo con tus palabras. Revisamos cada experiencia antes de publicarla, y te avisamos por email
+      cuando esté en la web.
+    </p>
+
+    <details class="normas" open>
+      <summary>Normas para publicar</summary>
+      <ul>
+        <li><strong>Sin nombres</strong> de alumnos ni de profesores, ni datos que permitan saber de quién hablas.</li>
+        <li><strong>Hechos</strong> que hayas vivido. Si es una opinión, dilo así («nos parece…», «creemos…»).</li>
+        <li><strong>Sin insultos</strong> ni suposiciones sobre las intenciones de nadie.</li>
+        <li>
+          En las fotos y documentos, <strong>tapa nombres, firmas y caras</strong> antes de subirlos. Quitamos
+          la ubicación y otros datos ocultos de las fotos, pero no lo que se ve.
+        </li>
+        <li>Puedes contar lo que funciona bien: también nos interesa.</li>
+      </ul>
+    </details>
+
+    <form class="editor__form" novalidate>
+      <label for="exp-titulo">Título</label>
+      <input
+        id="exp-titulo"
+        name="titulo"
+        required
+        minlength="8"
+        maxlength="120"
+        placeholder="Por ejemplo: «Nadie nos avisó de que había examen de recuperación»"
+      />
+
+      <div class="editor__fila">
+        <div>
+          <label for="exp-categoria">Tema</label>
+          <select id="exp-categoria" name="categoria" required>
+            {Object.entries(categorias).map(([id, c]) => <option value={id}>{c.icono} {c.etiqueta}</option>)}
+          </select>
+        </div>
+        <div>
+          <label for="exp-etapa">Curso del alumno</label>
+          <select id="exp-etapa" name="etapa" required>
+            {Object.entries(etapas).map(([id, e]) => <option value={id} selected={id === 'eso'}>{e}</option>)}
+          </select>
+        </div>
+        <div>
+          <label for="exp-curso">Año académico</label>
+          <select id="exp-curso" name="curso" required>
+            {cursos.map((c, i) => <option value={c} selected={i === 0}>{c}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div class="editor__cabecera">
+        <span id="exp-cuerpo-etiqueta" class="editor__etiqueta">Tu experiencia</span>
+        <div class="pestanas" role="tablist" aria-label="Modo del editor">
+          <button type="button" role="tab" aria-selected="true" aria-controls="exp-escribir" data-pestana="escribir">
+            Escribir
+          </button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="exp-vista" data-pestana="vista">
+            Vista previa
+          </button>
+        </div>
+      </div>
+
+      <div id="exp-escribir" role="tabpanel" class="editor__escribir">
+        <div class="herramientas" role="toolbar" aria-label="Formato" aria-controls="exp-cuerpo">
+          <button type="button" data-md="negrita" title="Negrita"><strong>N</strong></button>
+          <button type="button" data-md="cursiva" title="Cursiva"><em>C</em></button>
+          <button type="button" data-md="titulo" title="Subtítulo">T</button>
+          <button type="button" data-md="lista" title="Lista">• Lista</button>
+          <button type="button" data-md="cita" title="Cita">❝ Cita</button>
+          <button type="button" data-md="enlace" title="Enlace">🔗 Enlace</button>
+          <label class="herramientas__subir" title="Imagen o documento (hasta 5 MB)">
+            📎 Imagen o documento
+            <input class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" multiple />
+          </label>
+        </div>
+        <textarea
+          id="exp-cuerpo"
+          name="cuerpo"
+          aria-labelledby="exp-cuerpo-etiqueta"
+          required
+          minlength="50"
+          maxlength="20000"
+          rows="14"
+          placeholder="Qué pasó, cuándo (más o menos) y cómo os afectó. Puedes usar Markdown: **negrita**, *cursiva*, - listas, [enlaces](https://…)."
+        ></textarea>
+        <p class="editor__ayuda">
+          Las imágenes aparecen en el texto donde esté el cursor. Admite <strong>Markdown</strong>: listas, citas,
+          enlaces, subtítulos, tablas.
+        </p>
+      </div>
+
+      <div id="exp-vista" role="tabpanel" class="editor__vista prosa" hidden></div>
+
+      <div class="adjuntos" hidden>
+        <p class="editor__etiqueta">Adjuntos <span class="opcional">(hasta 10, de 5 MB como máximo cada uno)</span></p>
+        <ul class="adjuntos__lista"></ul>
+      </div>
+
+      <label for="exp-extracto">Resumen para la tarjeta <span class="opcional">(opcional: si lo dejas vacío, usamos el principio del texto)</span></label>
+      <textarea id="exp-extracto" name="extracto" rows="2" maxlength="280"></textarea>
+
+      <fieldset class="compromisos">
+        <legend class="visually-hidden">Antes de enviar</legend>
+        <label><input type="checkbox" required /> He leído las normas.</label>
+        <label><input type="checkbox" required /> Lo que cuento es mi experiencia real.</label>
+        <label><input type="checkbox" required /> No incluyo nombres ni datos que identifiquen a nadie.</label>
+      </fieldset>
+
+      <div class="editor__acciones">
+        <button class="btn" type="submit">Enviar a revisión</button>
+        <span class="editor__estado" role="status"></span>
+      </div>
+    </form>
+
+    <div class="editor__hecho" hidden>
+      <h2>¡Gracias!</h2>
+      <p>
+        Hemos recibido tu experiencia. La revisaremos antes de publicarla y te avisaremos por email. Mientras,
+        solo tú la ves en <a href="/experiencias">Experiencias</a>, marcada como pendiente.
+      </p>
+      <p><a class="btn btn--ghost" href="/experiencias/nueva">Escribir otra</a></p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { renderizar, resumen } from '../../lib/markdown';
+  import { asegurarSesion, enviarExperiencia, mensajeError } from '../../lib/participacion';
+
+  const MAX_BYTES = 5 * 1024 * 1024;
+  const MAX_ADJUNTOS = 10;
+  const BORRADOR = 'experiencia-borrador';
+  // Los mismos tipos que admite PocketBase (pb_migrations/…_experiencias.js).
+  const EXTENSIONES: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'application/pdf': 'pdf',
+  };
+
+  const form = document.querySelector<HTMLFormElement>('.editor__form')!;
+  const cuerpo = form.querySelector<HTMLTextAreaElement>('#exp-cuerpo')!;
+  const vista = form.querySelector<HTMLElement>('#exp-vista')!;
+  const escribir = form.querySelector<HTMLElement>('#exp-escribir')!;
+  const selector = form.querySelector<HTMLInputElement>('input[type=file]')!;
+  const cajaAdjuntos = form.querySelector<HTMLElement>('.adjuntos')!;
+  const listaAdjuntos = form.querySelector<HTMLUListElement>('.adjuntos__lista')!;
+  const estado = form.querySelector<HTMLElement>('.editor__estado')!;
+
+  interface Adjunto {
+    nombre: string; // a1.jpg: como se cita en el texto (adjunto:a1.jpg)
+    original: string;
+    archivo: File;
+    url: string; // URL local para la vista previa
+  }
+  const adjuntos: Adjunto[] = [];
+  let siguiente = 1;
+
+  // ── Borrador en este navegador (comodidad: si falla, no pasa nada) ──────────
+  const campos = ['titulo', 'categoria', 'etapa', 'curso', 'cuerpo', 'extracto'];
+  try {
+    const guardado = JSON.parse(localStorage.getItem(BORRADOR) ?? 'null');
+    if (guardado) {
+      for (const c of campos) {
+        const el = form.elements.namedItem(c) as HTMLInputElement | null;
+        if (el && guardado[c]) el.value = guardado[c];
+      }
+      // Los adjuntos no se guardan: sus referencias se quitan del texto.
+      cuerpo.value = cuerpo.value.replace(/!?\[[^\]]*\]\(adjunto:[^)]*\)\n?/g, '');
+    }
+  } catch {}
+  form.addEventListener('input', () => {
+    try {
+      const datos = Object.fromEntries(campos.map((c) => [c, (form.elements.namedItem(c) as HTMLInputElement).value]));
+      localStorage.setItem(BORRADOR, JSON.stringify(datos));
+    } catch {}
+  });
+
+  // ── Herramientas de formato ────────────────────────────────────────────────
+  function insertar(antes: string, despues = '', ejemplo = '') {
+    const { selectionStart: ini, selectionEnd: fin, value } = cuerpo;
+    const elegido = value.slice(ini, fin) || ejemplo;
+    cuerpo.setRangeText(antes + elegido + despues, ini, fin, 'end');
+    if (!value.slice(ini, fin) && ejemplo) {
+      // Deja seleccionado el texto de ejemplo para escribir encima.
+      cuerpo.setSelectionRange(ini + antes.length, ini + antes.length + ejemplo.length);
+    }
+    cuerpo.focus();
+    form.dispatchEvent(new Event('input'));
+  }
+
+  /** Al principio de línea: si el cursor no lo está, añade un salto antes. */
+  function inicioDeLinea(prefijo: string, ejemplo: string) {
+    const ini = cuerpo.selectionStart;
+    const salto = ini > 0 && cuerpo.value[ini - 1] !== '\n' ? '\n' : '';
+    insertar(salto + prefijo, '', ejemplo);
+  }
+
+  const acciones: Record<string, () => void> = {
+    negrita: () => insertar('**', '**', 'texto en negrita'),
+    cursiva: () => insertar('*', '*', 'texto en cursiva'),
+    titulo: () => inicioDeLinea('## ', 'Subtítulo'),
+    lista: () => inicioDeLinea('- ', 'elemento de la lista'),
+    cita: () => inicioDeLinea('> ', 'texto citado'),
+    enlace: () => {
+      const url = prompt('Dirección del enlace (https://…)');
+      if (url && /^https?:\/\//.test(url.trim())) insertar('[', `](${url.trim()})`, 'texto del enlace');
+    },
+  };
+  for (const b of form.querySelectorAll<HTMLButtonElement>('[data-md]')) {
+    b.addEventListener('click', () => acciones[b.dataset.md!]?.());
+  }
+
+  // ── Adjuntos ───────────────────────────────────────────────────────────────
+
+  /**
+   * Las fotos se vuelven a dibujar en un canvas: se pierden los metadatos
+   * (ubicación GPS, modelo de móvil…) y se reducen si son muy grandes.
+   */
+  async function limpiarImagen(archivo: File): Promise<File> {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(archivo.type)) return archivo;
+    const bitmap = await createImageBitmap(archivo);
+    const escala = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * escala);
+    canvas.height = Math.round(bitmap.height * escala);
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const tipo = archivo.type === 'image/png' ? 'image/png' : 'image/jpeg';
+    let blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, tipo, 0.88));
+    if (blob && blob.size > MAX_BYTES && tipo === 'image/png') {
+      // Un PNG enorme (p. ej. una captura) pasa a JPEG.
+      blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/jpeg', 0.85));
+    }
+    return blob ? new File([blob], archivo.name, { type: blob.type }) : archivo;
+  }
+
+  function tamano(bytes: number): string {
+    return bytes < 1024 * 1024
+      ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+      : `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
+  }
+
+  function pintarAdjuntos() {
+    cajaAdjuntos.hidden = adjuntos.length === 0;
+    listaAdjuntos.replaceChildren();
+    for (const a of adjuntos) {
+      const li = document.createElement('li');
+      li.className = 'adjunto';
+      if (a.archivo.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = a.url;
+        img.alt = '';
+        li.append(img);
+      } else {
+        const icono = document.createElement('span');
+        icono.className = 'adjunto__icono';
+        icono.textContent = '📄';
+        li.append(icono);
+      }
+      const texto = document.createElement('span');
+      texto.className = 'adjunto__nombre';
+      texto.textContent = `${a.original} · ${tamano(a.archivo.size)}`;
+      const quitar = document.createElement('button');
+      quitar.type = 'button';
+      quitar.textContent = 'Quitar';
+      quitar.addEventListener('click', () => {
+        adjuntos.splice(adjuntos.indexOf(a), 1);
+        URL.revokeObjectURL(a.url);
+        // Fuera también del texto, para que no quede una referencia rota.
+        const ref = new RegExp(`!?\\[[^\\]]*\\]\\(adjunto:${a.nombre.replace('.', '\\.')}\\)\\n?`, 'g');
+        cuerpo.value = cuerpo.value.replace(ref, '');
+        pintarAdjuntos();
+        form.dispatchEvent(new Event('input'));
+      });
+      li.append(texto, quitar);
+      listaAdjuntos.append(li);
+    }
+  }
+
+  selector.addEventListener('change', async () => {
+    estado.textContent = '';
+    for (const original of [...(selector.files ?? [])]) {
+      if (adjuntos.length >= MAX_ADJUNTOS) {
+        estado.textContent = `Como máximo ${MAX_ADJUNTOS} adjuntos.`;
+        break;
+      }
+      const base = `a${siguiente++}`;
+      let archivo: File;
+      try {
+        archivo = await limpiarImagen(original);
+      } catch {
+        estado.textContent = `No se ha podido leer «${original.name}».`;
+        continue;
+      }
+      if (archivo.size > MAX_BYTES) {
+        estado.textContent = `«${original.name}» ocupa más de 5 MB.`;
+        continue;
+      }
+      // Nombre corto y predecible (a1.jpg): así se cita en el texto y se encuentra después.
+      const ext = EXTENSIONES[archivo.type];
+      if (!ext) {
+        estado.textContent = `«${original.name}» no es una imagen ni un PDF.`;
+        continue;
+      }
+      archivo = new File([archivo], `${base}.${ext}`, { type: archivo.type });
+      const a: Adjunto = { nombre: archivo.name, original: original.name, archivo, url: URL.createObjectURL(archivo) };
+      adjuntos.push(a);
+      const etiqueta = original.name.replace(/\.[^.]+$/, '').replace(/[[\]]/g, '');
+      if (archivo.type.startsWith('image/')) inicioDeLinea(`![${etiqueta}](adjunto:${a.nombre})\n`, '');
+      else insertar(`[📄 ${original.name.replace(/[[\]]/g, '')}](adjunto:${a.nombre})`);
+    }
+    selector.value = '';
+    pintarAdjuntos();
+  });
+
+  // ── Escribir / vista previa ────────────────────────────────────────────────
+  function resolverLocal(nombre: string) {
+    return adjuntos.find((a) => a.nombre === nombre)?.url ?? null;
+  }
+  for (const pestana of form.querySelectorAll<HTMLButtonElement>('[data-pestana]')) {
+    pestana.addEventListener('click', () => {
+      const verVista = pestana.dataset.pestana === 'vista';
+      for (const p of form.querySelectorAll('[data-pestana]')) p.setAttribute('aria-selected', String(p === pestana));
+      escribir.hidden = verVista;
+      vista.hidden = !verVista;
+      if (verVista) {
+        vista.innerHTML = cuerpo.value.trim()
+          ? renderizar(cuerpo.value, resolverLocal) // saneado con DOMPurify
+          : '<p class="prosa__falta">Todavía no has escrito nada.</p>';
+      }
+    });
+  }
+
+  // ── Enviar ─────────────────────────────────────────────────────────────────
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    estado.textContent = '';
+    if (!form.checkValidity()) {
+      // Si el texto está en la pestaña oculta, se vuelve a «Escribir» para verlo.
+      form.querySelector<HTMLButtonElement>('[data-pestana=escribir]')!.click();
+      form.reportValidity();
+      return;
+    }
+    if (!(await asegurarSesion())) return;
+
+    const datos = new FormData(form);
+    const texto = String(datos.get('cuerpo')).trim();
+    // Solo se suben los adjuntos que siguen citados en el texto.
+    const usados = adjuntos.filter((a) => texto.includes(`adjunto:${a.nombre}`));
+    const boton = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+    boton.disabled = true;
+    estado.textContent = 'Enviando…';
+    try {
+      await enviarExperiencia(
+        {
+          titulo: String(datos.get('titulo')).trim(),
+          extracto: String(datos.get('extracto')).trim() || resumen(texto),
+          cuerpo: texto,
+          categoria: String(datos.get('categoria')),
+          etapa: String(datos.get('etapa')),
+          curso: String(datos.get('curso')),
+        },
+        usados.map((a) => a.archivo),
+      );
+      try {
+        localStorage.removeItem(BORRADOR);
+      } catch {}
+      form.hidden = true;
+      document.querySelector<HTMLElement>('.editor__hecho')!.hidden = false;
+      document.querySelector('.editor__hecho h2')?.scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+      estado.textContent = mensajeError(err);
+    } finally {
+      boton.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .editor {
+    max-width: 46rem;
+    padding-top: 2.5rem;
+    padding-bottom: 3rem;
+  }
+  .volver {
+    font-size: 0.9rem;
+  }
+  .editor h1 {
+    font-size: clamp(1.8rem, 4.5vw, 2.5rem);
+    margin: 1rem 0 0.5rem;
+  }
+  .normas {
+    margin: 1.25rem 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .normas summary {
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .normas ul {
+    margin: 0.5rem 0 0;
+    padding-left: 1.2rem;
+  }
+  .normas li {
+    margin: 0.25rem 0;
+  }
+  .editor__form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.4rem;
+  }
+  .editor__form [hidden] {
+    display: none;
+  }
+  .editor__form > label,
+  .editor__form label[for],
+  .editor__etiqueta {
+    margin-top: 0.6rem;
+    font-weight: 700;
+  }
+  .editor__form input:not([type='checkbox'], [type='file']),
+  .editor__form select,
+  .editor__form textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+    background: var(--surface);
+  }
+  .editor__form textarea {
+    resize: vertical;
+  }
+  .editor__fila {
+    display: grid;
+    gap: 0.5rem 1rem;
+  }
+  .editor__fila > div {
+    display: grid;
+    gap: 0.4rem;
+  }
+  @media (min-width: 600px) {
+    .editor__fila {
+      grid-template-columns: 2fr 1fr 1fr;
+    }
+  }
+  .opcional {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .editor__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+  }
+  .editor__cabecera .editor__etiqueta {
+    margin: 0;
+  }
+  .pestanas {
+    display: flex;
+    gap: 0.25rem;
+  }
+  .pestanas button {
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .pestanas button[aria-selected='true'] {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+  .herramientas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.4rem;
+  }
+  .herramientas button,
+  .herramientas__subir {
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .herramientas__subir {
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .herramientas__subir:focus-within {
+    outline: 3px solid var(--compare);
+  }
+  .editor__ayuda {
+    margin: 0.3rem 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .editor__vista {
+    box-sizing: border-box;
+    min-height: 16rem;
+    padding: 1rem 1.25rem;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  .adjuntos__lista {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .adjuntos__lista :global(.adjunto) {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  .adjuntos__lista :global(.adjunto img),
+  .adjuntos__lista :global(.adjunto__icono) {
+    width: 3rem;
+    height: 3rem;
+    flex: none;
+    object-fit: cover;
+    border-radius: 4px;
+    display: grid;
+    place-items: center;
+    font-size: 1.6rem;
+  }
+  .adjuntos__lista :global(.adjunto__nombre) {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.9rem;
+  }
+  .adjuntos__lista :global(.adjunto button) {
+    border: none;
+    background: none;
+    color: var(--shared);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .compromisos {
+    margin: 0.8rem 0 0;
+    padding: 0;
+    border: none;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .compromisos label {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+  .editor__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.8rem;
+  }
+  .editor__acciones .btn {
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+  }
+  .editor__acciones .btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+  .editor__estado {
+    color: var(--muted);
+  }
+  .editor__hecho {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+</style>

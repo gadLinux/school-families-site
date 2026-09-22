@@ -1,0 +1,210 @@
+---
+/**
+ * Diálogo de acceso sin contraseña: email → código de 6 cifras → seudónimo
+ * (solo la primera vez). Se abre con el evento `acceso:abrir` y avisa con
+ * `acceso:fin` (detail = true si hay sesión con seudónimo). Ver asegurarSesion().
+ */
+---
+
+<dialog id="acceso" class="acceso" aria-labelledby="acceso-titulo">
+  <form method="dialog" class="acceso__cerrar">
+    <button type="submit" aria-label="Cerrar">✕</button>
+  </form>
+  <h2 id="acceso-titulo">Entrar</h2>
+
+  <form class="acceso__paso" data-paso="email">
+    <p>Te enviamos un código a tu email. No hace falta contraseña, y tu email nunca se muestra.</p>
+    <label for="acceso-email">Email</label>
+    <input id="acceso-email" name="email" type="email" autocomplete="email" required />
+    <button class="btn" type="submit">Enviarme el código</button>
+  </form>
+
+  <form class="acceso__paso" data-paso="codigo" hidden>
+    <p>Hemos enviado un código de 6 cifras a <strong data-email></strong>. Caduca en 10 minutos.</p>
+    <label for="acceso-codigo">Código</label>
+    <input
+      id="acceso-codigo"
+      name="codigo"
+      inputmode="numeric"
+      autocomplete="one-time-code"
+      pattern="[0-9]{6}"
+      maxlength="6"
+      required
+    />
+    <button class="btn" type="submit">Entrar</button>
+    <button class="acceso__enlace" type="button" data-volver>Usar otro email</button>
+  </form>
+
+  <form class="acceso__paso" data-paso="seudonimo" hidden>
+    <p>¿Con qué nombre quieres aparecer? Usa un seudónimo, por ejemplo «Madre de 2.º ESO». Nunca tu nombre real.</p>
+    <label for="acceso-seudonimo">Seudónimo</label>
+    <input id="acceso-seudonimo" name="seudonimo" maxlength="40" required pattern="[^@]{2,40}" />
+    <button class="btn" type="submit">Guardar</button>
+  </form>
+
+  <p class="acceso__error" role="alert" hidden></p>
+</dialog>
+
+<script>
+  import { entrarConCodigo, guardarSeudonimo, mensajeError, pedirCodigo, usuario } from '../lib/participacion';
+
+  const dialogo = document.querySelector<HTMLDialogElement>('#acceso')!;
+  const error = dialogo.querySelector<HTMLElement>('.acceso__error')!;
+  const pasos = [...dialogo.querySelectorAll<HTMLFormElement>('.acceso__paso')];
+  let otpId = '';
+  let terminado = false;
+
+  function mostrar(paso: string) {
+    for (const p of pasos) p.hidden = p.dataset.paso !== paso;
+    error.hidden = true;
+    pasos.find((p) => p.dataset.paso === paso)?.querySelector('input')?.focus();
+  }
+
+  function fallo(err: unknown) {
+    error.textContent = mensajeError(err);
+    error.hidden = false;
+  }
+
+  /** Bloquea el botón mientras la petición está en curso. */
+  async function enviando(form: HTMLFormElement, accion: () => Promise<void>) {
+    const boton = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+    boton.disabled = true;
+    try {
+      await accion();
+    } catch (err) {
+      fallo(err);
+    } finally {
+      boton.disabled = false;
+    }
+  }
+
+  function terminar(ok: boolean) {
+    terminado = true;
+    dialogo.close();
+    document.dispatchEvent(new CustomEvent('acceso:fin', { detail: ok }));
+    document.dispatchEvent(new CustomEvent('sesion:cambio'));
+  }
+
+  document.addEventListener('acceso:abrir', () => {
+    terminado = false;
+    const u = usuario();
+    mostrar(u && !u.seudonimo ? 'seudonimo' : 'email');
+    dialogo.showModal();
+  });
+
+  // Cerrar sin terminar (✕ o Escape) también responde, para no dejar esperando.
+  dialogo.addEventListener('close', () => {
+    if (!terminado) document.dispatchEvent(new CustomEvent('acceso:fin', { detail: false }));
+  });
+
+  for (const form of pasos) {
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const datos = new FormData(form);
+      enviando(form, async () => {
+        if (form.dataset.paso === 'email') {
+          const email = String(datos.get('email'));
+          otpId = await pedirCodigo(email);
+          dialogo.querySelector('[data-email]')!.textContent = email;
+          mostrar('codigo');
+        } else if (form.dataset.paso === 'codigo') {
+          const u = await entrarConCodigo(otpId, String(datos.get('codigo')));
+          if (u.seudonimo) terminar(true);
+          else mostrar('seudonimo');
+        } else {
+          await guardarSeudonimo(String(datos.get('seudonimo')));
+          terminar(true);
+        }
+      });
+    });
+  }
+
+  dialogo.querySelector('[data-volver]')!.addEventListener('click', () => mostrar('email'));
+</script>
+
+<style>
+  .acceso {
+    box-sizing: border-box;
+    width: min(28rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    padding: 1.5rem;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 20px 60px rgb(31 35 40 / 0.25);
+  }
+  .acceso::backdrop {
+    background: rgb(31 35 40 / 0.45);
+  }
+  .acceso h2 {
+    margin: 0 0 0.5rem;
+  }
+  .acceso__cerrar {
+    float: right;
+  }
+  .acceso__cerrar button {
+    border: none;
+    background: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .acceso__paso {
+    display: grid;
+    /* minmax(0, …): un email largo no ensancha el formulario. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+  .acceso__paso[hidden],
+  .acceso__error[hidden] {
+    display: none;
+  }
+  .acceso__paso p {
+    margin: 0 0 0.5rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+  .acceso label {
+    font-weight: 700;
+  }
+  .acceso input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+  }
+  #acceso-codigo {
+    font-size: 1.5rem;
+    letter-spacing: 0.4em;
+    text-align: center;
+  }
+  .acceso .btn {
+    margin-top: 0.5rem;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+  }
+  .acceso .btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+  .acceso__enlace {
+    border: none;
+    background: none;
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+  }
+  .acceso__error {
+    margin: 0.75rem 0 0;
+    color: var(--shared);
+    font-weight: 700;
+  }
+</style>

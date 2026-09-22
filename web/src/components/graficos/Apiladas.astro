@@ -1,0 +1,124 @@
+---
+/**
+ * Barras horizontales apiladas en SVG: una fila por categoría, dividida en
+ * tramos que suman el total. Sirve para enseñar de dónde sale un porcentaje:
+ * qué parte del grupo entra en el cálculo y qué parte se queda fuera.
+ * El valor de cada tramo va dentro si cabe; la tabla del bloque los da todos.
+ */
+export interface Tramo {
+  nombre: string;
+  color: string;
+  /** Tramo calculado como mínimo: rayado, y su valor con «≥». */
+  minimo?: boolean;
+}
+
+interface Props {
+  id: string;
+  titulo: string;
+  categorias: string[];
+  tramos: Tramo[];
+  /** valores[categoria][tramo] */
+  valores: number[][];
+}
+
+const { id, titulo, categorias, tramos, valores } = Astro.props;
+
+const ancho = 640;
+const altoFila = 64;
+const margen = { arriba: 8, izq: 96, der: 16 };
+const alto = margen.arriba + categorias.length * altoFila + 8;
+const maxTotal = Math.max(...valores.map((fila) => fila.reduce((a, b) => a + b, 0)));
+const escala = (ancho - margen.izq - margen.der) / maxTotal;
+/** Ancho mínimo (en unidades del SVG) para escribir el valor dentro del tramo. */
+const cabe = 44;
+---
+
+<svg class="grafico" viewBox={`0 0 ${ancho} ${alto}`} role="img" aria-labelledby={`${id}-t`}>
+  <title id={`${id}-t`}>{titulo}</title>
+  <defs>
+    {
+      tramos.map((t, i) =>
+        t.minimo ? (
+          <pattern id={`${id}-rayas-${i}`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="8" height="8" fill={t.color} opacity="0.3" />
+            <line x1="0" y1="0" x2="0" y2="8" stroke={t.color} stroke-width="4" />
+          </pattern>
+        ) : null,
+      )
+    }
+  </defs>
+  {
+    categorias.map((cat, c) => {
+      const y = margen.arriba + c * altoFila;
+      let x = margen.izq;
+      return (
+        <g>
+          <text class="grafico__cat" x={margen.izq - 10} y={y + altoFila / 2 - 2} text-anchor="end">
+            {cat}
+          </text>
+          {tramos.map((t, i) => {
+            const v = valores[c][i];
+            const w = v * escala;
+            const x0 = x;
+            x += w;
+            return (
+              <g>
+                <rect
+                  x={x0}
+                  y={y + 8}
+                  width={Math.max(0, w - 2)}
+                  height={altoFila - 24}
+                  fill={t.minimo ? `url(#${id}-rayas-${i})` : t.color}
+                  stroke={t.minimo ? t.color : 'none'}
+                  stroke-dasharray={t.minimo ? '5 3' : undefined}
+                  stroke-width="1.5"
+                />
+                {w >= cabe && (
+                  <text
+                    class:list={['grafico__valor', { 'grafico__valor--claro': !t.minimo }]}
+                    x={x0 + w / 2}
+                    y={y + altoFila / 2 + 2}
+                    text-anchor="middle"
+                  >
+                    {t.minimo ? '≥' : ''}
+                    {v}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </g>
+      );
+    })
+  }
+</svg>
+
+<style>
+  .grafico {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-body);
+  }
+  .grafico__cat {
+    font-size: 15px;
+    font-weight: 700;
+    fill: var(--text);
+  }
+  .grafico__valor {
+    font-size: 16px;
+    font-weight: 700;
+    fill: var(--text);
+  }
+  .grafico__valor--claro {
+    fill: #fff;
+  }
+  @media (max-width: 599px) {
+    .grafico__cat {
+      font-size: 22px;
+    }
+    .grafico__valor {
+      font-size: 24px;
+    }
+  }
+</style>

@@ -1,0 +1,12 @@
+---
+pb_version: "0.40.4"
+pb_user: pocketbase
+pb_root: "{{ site_root }}/pb"
+# Fichero de entorno del servicio (SMTP y URLs). Contiene la contraseña de
+# aplicación de Gmail: solo lo lee root (systemd lo carga al arrancar).
+pb_env_file: /etc/familiasdiegovelazquez/pb.env
+# Código propio: migraciones y hooks del repositorio (../pb).
+pb_src_dir: "{{ playbook_dir }}/../../pb"
+# Copias diarias de la base de datos (sqlite3 .backup), se guardan N días.
+pb_backup_dir: /var/backups/familiasdiegovelazquez
+pb_backup_keep_days: 14

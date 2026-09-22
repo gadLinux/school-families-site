@@ -1,0 +1,283 @@
+---
+import { categorias, etapas } from '../data/categorias';
+import type { Experiencia } from '../data/experiencias';
+import { esCompartida, enDiscusion, proporcionAcuerdo } from '../lib/reglas';
+
+interface Props {
+  experiencia: Experiencia;
+  indice: number; // posición en el orden de relevancia
+}
+
+const { experiencia: e, indice } = Astro.props;
+const cat = categorias[e.categoria];
+const compartida = esCompartida(e);
+const discusion = enDiscusion(e);
+const acuerdoPct = Math.round(proporcionAcuerdo(e) * 100);
+
+// Inclinación determinista según la posición: no cambia entre recargas.
+const inclinaciones = [-2.6, 2.1, -1.6, 2.9, -2.2, 1.7, 2.5, -1.9];
+const tilt = inclinaciones[indice % inclinaciones.length];
+
+const fecha = new Date(e.publicada).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+
+<article
+  class:list={['card', { 'card--compartida': compartida, 'card--discusion': discusion }]}
+  style={`--tilt:${tilt}deg; order:${indice};`}
+>
+  {
+    compartida && (
+      <p class="card__ribbon card__ribbon--compartida">
+        🤝 Compartido por <strong>{e.aMiTambien} familias</strong>
+      </p>
+    )
+  }
+  {
+    discusion && (
+      <p class="card__ribbon card__ribbon--discusion">⚖️ Opiniones divididas · en discusión</p>
+    )
+  }
+  <header class="card__head">
+    <span class="card__icon" style={`--cat:${cat.color}`} aria-hidden="true">{cat.icono}</span>
+    <div class="card__cat">
+      <span class="card__cat-name">{cat.etiqueta}</span>
+      <span class="card__etapa">{etapas[e.etapa]} · {e.curso}</span>
+    </div>
+  </header>
+
+  <h3 class="card__title">
+    <a href={`/experiencias/${e.slug}`}>{e.titulo}</a>
+  </h3>
+  <p class="card__excerpt">{e.extracto}</p>
+
+  <p class="card__meta">
+    <span>{e.seudonimo}</span>
+    <span aria-hidden="true">·</span>
+    <time datetime={e.publicada}>{fecha}</time>
+    {e.adjuntos > 0 && <span title="Documentos adjuntos">📎 {e.adjuntos}</span>}
+    {e.comentarios > 0 && <span title="Comentarios">💬 {e.comentarios}</span>}
+  </p>
+
+  {
+    discusion && (
+      <div class="balance" aria-label={`${acuerdoPct}% de acuerdo, ${100 - acuerdoPct}% en desacuerdo`}>
+        <div class="balance__bar">
+          <span class="balance__up" style={`width:${acuerdoPct}%`} />
+        </div>
+        <div class="balance__labels">
+          <span>▲ {acuerdoPct}% de acuerdo</span>
+          <span>{100 - acuerdoPct}% en desacuerdo ▼</span>
+        </div>
+        <a class="balance__cta" href={`/experiencias/${e.slug}#conversacion`}>
+          💬 Únete a la conversación ({e.comentarios})
+        </a>
+      </div>
+    )
+  }
+
+  <footer class="card__actions">
+    <button class="btn-metoo" type="button" aria-pressed="false" data-slug={e.slug} data-base={e.aMiTambien}>
+      <span aria-hidden="true">🤝</span>
+      <span class="btn-metoo__n">{e.aMiTambien}</span>
+      <span class="btn-metoo__label">A mí también</span>
+    </button>
+    <div class="vote" role="group" aria-label="¿Estás de acuerdo?">
+      <button class="vote__btn" type="button" data-dir="up" aria-pressed="false" aria-label={`De acuerdo (${e.votosArriba})`}>
+        ▲ <span>{e.votosArriba}</span>
+      </button>
+      <button class="vote__btn" type="button" data-dir="down" aria-pressed="false" aria-label={`En desacuerdo (${e.votosAbajo})`}>
+        ▼ <span>{e.votosAbajo}</span>
+      </button>
+    </div>
+  </footer>
+</article>
+
+<style>
+  .card {
+    container-type: inline-size;
+    background: var(--surface);
+    border-radius: 16px;
+    box-shadow:
+      0 1px 2px rgb(31 35 40 / 0.06),
+      0 8px 24px rgb(31 35 40 / 0.08);
+    overflow: hidden;
+    transform: rotate(var(--tilt));
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease;
+  }
+  .card:hover,
+  .card:focus-within {
+    transform: rotate(0deg) translateY(-4px);
+    box-shadow:
+      0 2px 4px rgb(31 35 40 / 0.08),
+      0 16px 36px rgb(31 35 40 / 0.14);
+  }
+  @media (max-width: 599px) {
+    .card {
+      transform: rotate(calc(var(--tilt) * 0.5));
+    }
+  }
+
+  /* Problema compartido (más de 3 «A mí también») */
+  .card--compartida {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--shared) 55%, transparent),
+      0 10px 28px rgb(184 69 47 / 0.16);
+  }
+  /* En discusión (votos divididos) */
+  .card--discusion {
+    background: color-mix(in srgb, var(--debate) 6%, var(--surface));
+    outline: 2px dashed color-mix(in srgb, var(--debate) 55%, transparent);
+    outline-offset: -2px;
+  }
+  .card__ribbon {
+    margin: 0;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.85rem;
+  }
+  .card__ribbon--compartida {
+    background: color-mix(in srgb, var(--shared) 12%, var(--surface));
+    color: var(--shared);
+  }
+  .card__ribbon--discusion {
+    background: color-mix(in srgb, var(--debate) 14%, var(--surface));
+    color: var(--debate-text);
+    font-weight: 700;
+  }
+  .balance {
+    margin: 0 1.25rem 1.1rem;
+  }
+  .balance__bar {
+    height: 0.6rem;
+    border-radius: 999px;
+    background: var(--compare);
+    overflow: hidden;
+  }
+  .balance__up {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+  }
+  .balance__labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.3rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .balance__cta {
+    display: inline-block;
+    margin-top: 0.7rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--debate-text);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card {
+      transition: none;
+    }
+  }
+
+  .card__head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 1.25rem 0;
+  }
+  .card__icon {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--cat) 18%, transparent);
+    font-size: 1.2rem;
+  }
+  .card__cat {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+    min-width: 0;
+  }
+  .card__cat-name {
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+  .card__etapa {
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .card__title {
+    margin: 1rem 1.25rem 0.4rem;
+    font-size: 1.2rem;
+  }
+  .card__title a {
+    color: var(--text);
+    text-decoration: none;
+  }
+  .card__title a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .card__excerpt {
+    margin: 0 1.25rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.6rem;
+    margin: 0.9rem 1.25rem 1.1rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  /* Franja inferior de acciones (como el pie gris de la referencia) */
+  .card__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.8rem 1.25rem;
+    background: color-mix(in srgb, var(--border) 45%, var(--surface));
+    border-top: 1px solid var(--border);
+  }
+  .vote__btn {
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-radius: 10px;
+    transition:
+      background 0.15s,
+      color 0.15s;
+  }
+  .vote {
+    display: inline-flex;
+    gap: 0.35rem;
+  }
+  .vote__btn {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+  }
+  .vote__btn[aria-pressed='true'][data-dir='up'] {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .vote__btn[aria-pressed='true'][data-dir='down'] {
+    border-color: var(--compare);
+    color: var(--compare-text);
+  }
+  /* Tarjetas estrechas (columna «En discusión», móviles pequeños) */
+  @container (max-width: 19rem) {
+    .btn-metoo__label {
+      display: none;
+    }
+  }
+</style>

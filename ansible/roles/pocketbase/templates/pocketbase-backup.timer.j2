@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Copia diaria de la base de datos de PocketBase
+
+[Timer]
+OnCalendar=*-*-* 04:15:00
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

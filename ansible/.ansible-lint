@@ -1,0 +1,7 @@
+---
+# tests/test-local.yml usa curl a propósito: necesita --resolve para probar SNI
+# con los nombres reales contra el nginx en Docker (el módulo uri no lo permite).
+exclude_paths:
+  - .artifacts/
+skip_list:
+  - var-naming[no-role-prefix]  # proyecto pequeño: nombres cortos y legibles

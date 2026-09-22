@@ -1,0 +1,117 @@
+---
+# PocketBase: backend de participación (cuentas, «A mí también», comentarios,
+# propuestas y experiencias). Escucha solo en localhost; nginx le reenvía /api.
+
+- name: Paquetes necesarios (unzip para instalar, sqlite3 para las copias)
+  ansible.builtin.apt:
+    name: [unzip, sqlite3]
+    state: present
+
+- name: Usuario del servicio
+  ansible.builtin.user:
+    name: "{{ pb_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ pb_root }}"
+    create_home: false
+
+- name: Carpetas de PocketBase
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.owner }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ pb_root }}", owner: root, mode: "0755" }
+    - { path: "{{ pb_root }}/bin", owner: root, mode: "0755" }
+    - { path: "{{ pb_root }}/pb_hooks", owner: root, mode: "0755" }
+    - { path: "{{ pb_root }}/pb_migrations", owner: root, mode: "0755" }
+    - { path: "{{ pb_root }}/pb_data", owner: "{{ pb_user }}", mode: "0750" }
+    - { path: "{{ pb_env_file | dirname }}", owner: root, mode: "0755" }
+    - { path: "{{ pb_backup_dir }}", owner: root, mode: "0700" }
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Versión de PocketBase instalada
+  ansible.builtin.command: "{{ pb_root }}/bin/pocketbase --version"
+  register: pb_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Instalar PocketBase {{ pb_version }}
+  when: pb_version not in (pb_installed.stdout | default(''))
+  block:
+    - name: Descargar (comprobando la suma SHA-256 publicada)
+      ansible.builtin.get_url:
+        url: "https://github.com/pocketbase/pocketbase/releases/download/v{{ pb_version }}/pocketbase_{{ pb_version }}_linux_amd64.zip"
+        dest: "/tmp/pocketbase_{{ pb_version }}.zip"
+        checksum: "sha256:https://github.com/pocketbase/pocketbase/releases/download/v{{ pb_version }}/checksums.txt"
+        mode: "0644"
+    - name: Descomprimir el binario
+      ansible.builtin.unarchive:
+        src: "/tmp/pocketbase_{{ pb_version }}.zip"
+        dest: "{{ pb_root }}/bin"
+        remote_src: true
+        include: [pocketbase]
+      notify: restart pocketbase
+      when: not ansible_check_mode
+
+- name: Migraciones y hooks del repositorio
+  ansible.builtin.copy:
+    src: "{{ pb_src_dir }}/{{ item }}/"
+    dest: "{{ pb_root }}/{{ item }}/"
+    owner: root
+    group: root
+    mode: "0644"
+    directory_mode: "0755"
+  loop: [pb_migrations, pb_hooks]
+  notify: restart pocketbase
+
+- name: Fichero de entorno (SMTP con la contraseña del vault, URLs)
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../templates/pb.env.j2"
+    dest: "{{ pb_env_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: restart pocketbase
+
+- name: Servicio systemd
+  ansible.builtin.template:
+    src: pocketbase.service.j2
+    dest: /etc/systemd/system/pocketbase.service
+    mode: "0644"
+  notify: restart pocketbase
+
+- name: Copia diaria de la base de datos
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop: [pocketbase-backup.service, pocketbase-backup.timer]
+
+- name: Activar PocketBase y la copia diaria
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop: [pocketbase.service, pocketbase-backup.timer]
+  # En simulación las unidades aún no existen.
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Aplicar reinicio pendiente
+  ansible.builtin.meta: flush_handlers
+
+- name: Esperar a que PocketBase responda
+  ansible.builtin.uri:
+    url: "http://{{ pb_listen }}/api/health"
+    status_code: 200
+  register: pb_health
+  until: pb_health.status == 200
+  retries: 15
+  delay: 2
+  when: not ansible_check_mode

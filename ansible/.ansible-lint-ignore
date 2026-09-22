@@ -1,0 +1,3 @@
+tests/test-local.yml command-instead-of-module
+roles/nginx_proxy/tasks/certificates.yml no-handler
+roles/convivencia/tasks/main.yml no-handler

@@ -1,0 +1,8 @@
+---
+# Publica solo una nueva versión de la web (uso diario).
+#   ansible-playbook playbooks/deploy-web.yml
+- name: Publicar la web
+  hosts: web
+  become: true
+  roles:
+    - web

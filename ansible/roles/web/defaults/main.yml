@@ -1,0 +1,3 @@
+---
+web_artifact_dir: "{{ playbook_dir }}/../.artifacts"
+web_artifact: "{{ web_artifact_dir }}/web.tar.gz"

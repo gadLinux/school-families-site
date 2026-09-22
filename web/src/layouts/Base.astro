@@ -1,0 +1,170 @@
+---
+import '../styles/global.css';
+import Acceso from '../components/Acceso.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = 'Un espacio independiente para las familias del IES Diego Velázquez: compartir experiencias, entender los datos y mejorar juntos.',
+} = Astro.props;
+const path = Astro.url.pathname;
+const SITIO = 'Familias Instituto Diego Velázquez - Torrelodones';
+const fullTitle = title === 'Inicio' ? SITIO : `${title} · ${SITIO}`;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container site-header__inner">
+        <a class="brand" href="/">
+          <span class="brand__name">
+            Familias Instituto Diego Velázquez
+            <span class="beta" title="Web en pruebas: si algo falla, avísanos">Beta</span>
+          </span>
+          <span class="brand__place">Torrelodones</span>
+        </a>
+        <nav class="nav" aria-label="Principal">
+          <a href="/" aria-current={path === '/' ? 'page' : undefined}>Inicio</a>
+          <a href="/experiencias" aria-current={path.startsWith('/experiencias') ? 'page' : undefined}>Experiencias</a>
+          <a href="/datos" aria-current={path.startsWith('/datos') ? 'page' : undefined}>Datos</a>
+          <a href="/moderacion" data-moderacion hidden aria-current={path.startsWith('/moderacion') ? 'page' : undefined}>Moderación</a>
+          <button class="nav__sesion" type="button" data-sesion>Entrar</button>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>
+          Iniciativa independiente de familias. Sin vínculo con el IES Diego Velázquez ni con su AMPA.
+        </p>
+        <p>Contacto: <a href="mailto:familias.diego.velazquez@gmail.com">familias.diego.velazquez@gmail.com</a></p>
+      </div>
+    </footer>
+    <Acceso />
+  </body>
+</html>
+
+<script>
+  import { asegurarSesion, salir, soyModerador, usuario } from '../lib/participacion';
+
+  const boton = document.querySelector<HTMLButtonElement>('[data-sesion]')!;
+  const moderacion = document.querySelector<HTMLAnchorElement>('[data-moderacion]')!;
+  async function pintar() {
+    const u = usuario();
+    boton.textContent = u?.seudonimo ? `Salir (${u.seudonimo})` : 'Entrar';
+    // Solo es un atajo: las reglas de PocketBase son las que protegen la moderación.
+    moderacion.hidden = !(await soyModerador());
+  }
+  boton.addEventListener('click', async () => {
+    if (usuario()?.seudonimo) {
+      salir();
+      document.dispatchEvent(new CustomEvent('sesion:cambio'));
+    } else {
+      await asegurarSesion();
+    }
+  });
+  document.addEventListener('sesion:cambio', pintar);
+  pintar();
+</script>
+
+<style>
+  .nav [hidden] {
+    display: none;
+  }
+  .nav__sesion {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .site-header {
+    border-bottom: 1px solid var(--border);
+  }
+  .site-header__inner {
+    display: flex;
+    align-items: center;
+    min-height: 4rem;
+  }
+  .site-header__inner {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0 1rem;
+  }
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1.25rem;
+    padding-bottom: 0.4rem;
+  }
+  .nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 700;
+  }
+  .nav a[aria-current='page'] {
+    color: var(--accent);
+  }
+  .brand {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    padding: 0.6rem 0;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .brand__name {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+  /* «Beta»: la web está en pruebas. Color --debate = «todavía no es definitivo». */
+  .beta {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.05rem 0.45rem;
+    border: 1.5px solid var(--debate);
+    border-radius: 999px;
+    color: var(--debate-text);
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    vertical-align: 0.2em;
+  }
+  .brand__place {
+    color: var(--muted);
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .site-footer {
+    margin-top: 4rem;
+    padding: 2rem 0;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+</style>

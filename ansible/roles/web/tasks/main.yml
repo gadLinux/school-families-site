@@ -1,0 +1,71 @@
+---
+# Compila la web en local y la publica como una "release" con fecha.
+# `current` es un enlace simbólico: el cambio de versión es atómico y
+# volver atrás es apuntar el enlace a la release anterior.
+
+- name: Compilar la web (local)
+  delegate_to: localhost
+  run_once: true
+  become: false
+  check_mode: false
+  block:
+    - name: Instalar dependencias
+      ansible.builtin.command: npm ci --no-audit --no-fund
+      args:
+        chdir: "{{ web_src_dir }}"
+      changed_when: false
+    - name: Compilar
+      ansible.builtin.command: npm run build
+      args:
+        chdir: "{{ web_src_dir }}"
+      changed_when: false
+    - name: Crear carpeta de artefactos
+      ansible.builtin.file:
+        path: "{{ web_artifact_dir }}"
+        state: directory
+        mode: "0755"
+    - name: Empaquetar dist/
+      ansible.builtin.command: tar -czf {{ web_artifact }} -C {{ web_src_dir }}/dist .
+      changed_when: false
+
+- name: Identificador de la release
+  ansible.builtin.set_fact:
+    web_release: "{{ now(utc=true, fmt='%Y%m%d%H%M%S') }}"
+
+- name: Crear carpeta de releases
+  ansible.builtin.file:
+    path: "{{ site_root }}/releases/{{ web_release }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Subir y descomprimir la release
+  ansible.builtin.unarchive:
+    src: "{{ web_artifact }}"
+    dest: "{{ site_root }}/releases/{{ web_release }}"
+    owner: root
+    group: root
+  when: not ansible_check_mode
+
+- name: Apuntar current a la nueva release
+  ansible.builtin.file:
+    src: "{{ site_root }}/releases/{{ web_release }}"
+    dest: "{{ site_root }}/current"
+    state: link
+    force: true
+  when: not ansible_check_mode
+
+- name: Listar releases
+  ansible.builtin.find:
+    paths: "{{ site_root }}/releases"
+    file_type: directory
+  register: web_releases
+
+- name: Borrar releases antiguas (se conservan {{ site_keep_releases }})
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ (web_releases.files | sort(attribute='path'))[:-site_keep_releases] }}"
+  loop_control:
+    label: "{{ item.path | basename }}"

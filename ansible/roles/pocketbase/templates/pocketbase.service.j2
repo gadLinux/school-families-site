@@ -1,0 +1,30 @@
+# {{ ansible_managed }}
+[Unit]
+Description=PocketBase (familiasdiegovelazquez.es)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ pb_user }}
+Group={{ pb_user }}
+EnvironmentFile={{ pb_env_file }}
+ExecStart={{ pb_root }}/bin/pocketbase serve --http {{ pb_listen }} \
+  --dir {{ pb_root }}/pb_data \
+  --migrationsDir {{ pb_root }}/pb_migrations \
+  --hooksDir {{ pb_root }}/pb_hooks
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=4096
+
+# Endurecimiento: solo puede escribir en su carpeta de datos.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ pb_root }}/pb_data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,296 @@
+---
+import Base from '../../layouts/Base.astro';
+import ExperienceCard from '../../components/ExperienceCard.astro';
+import { experiencias, type Experiencia } from '../../data/experiencias';
+import { clasificar } from '../../lib/ranking';
+import { COMPARTIDO_MIN } from '../../lib/reglas';
+
+const { resto, discusion } = clasificar(experiencias);
+
+// Reparto «en fila» en 2 columnas: la tarjeta i va a la columna i % 2, así las
+// más relevantes quedan arriba en ambas (CSS columns las apilaría en la primera).
+const COLUMNAS = 2;
+
+// Molde para las tarjetas de las experiencias escritas desde la web, que se
+// cargan en el navegador: así comparten marcado y estilos con las demás.
+const molde: Experiencia = {
+  slug: 'molde',
+  titulo: '',
+  extracto: '',
+  cuerpo: [],
+  seudonimo: '',
+  categoria: 'otros',
+  etapa: 'eso',
+  curso: '',
+  publicada: '2026-01-01',
+  adjuntos: 0,
+  comentarios: 0,
+  aMiTambien: 0,
+  votosArriba: 0,
+  votosAbajo: 0,
+};
+const columnas = Array.from({ length: COLUMNAS }, (_, c) =>
+  resto.map((e, i) => ({ e, i })).filter(({ i }) => i % COLUMNAS === c),
+);
+---
+
+<Base title="Experiencias" description="Experiencias compartidas por familias del IES Diego Velázquez.">
+  <section class="intro container">
+    <h1>Experiencias</h1>
+    <p>
+      Lo que viven las familias en el instituto, contado por ellas. Pulsa <strong>🤝 A mí también</strong>{' '}si
+      te ha pasado algo parecido, y ▲ ▼ para indicar si estás de acuerdo.
+    </p>
+    <ul class="leyenda">
+      <li><span class="leyenda__dot leyenda__dot--compartida"></span> Compartida por más de {COMPARTIDO_MIN - 1} familias</li>
+      <li><span class="leyenda__dot leyenda__dot--discusion"></span> Opiniones divididas: pasa a «En discusión»</li>
+    </ul>
+    <p class="intro__acciones">
+      <a class="btn" href="/experiencias/nueva">✍️ Cuenta tu experiencia</a>
+    </p>
+    {experiencias.length === 0 && <p class="aviso-vacio">Todavía no hay experiencias. ¡Puedes ser la primera familia!</p>}
+  </section>
+
+  <template id="plantilla-tarjeta"><ExperienceCard experiencia={molde} indice={0} /></template>
+
+  {
+    (
+      <section class="container tablero">
+        <div class="historias">
+          {columnas.map((col) => (
+            <div class="historias__col">
+              {col.map(({ e, i }) => (
+                <ExperienceCard experiencia={e} indice={i} />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <aside class="debate" aria-labelledby="debate-titulo">
+          <h2 id="debate-titulo">⚖️ En discusión</h2>
+          <p class="debate__intro">
+            Temas en los que las familias no están de acuerdo. Los apartamos para conversar con calma antes de
+            sacar conclusiones.
+          </p>
+          <div class="debate__lista">
+            {discusion.length === 0 ? (
+              <p class="debate__vacio">Ahora mismo no hay temas en discusión.</p>
+            ) : (
+              discusion.map((e, i) => <ExperienceCard experiencia={e} indice={i + 1} />)
+            )}
+          </div>
+        </aside>
+      </section>
+    )
+  }
+</Base>
+
+<script>
+  import { categorias, etapas, type CategoriaId, type EtapaId } from '../../data/categorias';
+  import { activarBotonesAMiTambien } from '../../lib/a-mi-tambien';
+  import { experienciasPublicadas, misExperienciasPendientes, type ExperienciaPB } from '../../lib/participacion';
+
+  const plantilla = document.querySelector<HTMLTemplateElement>('#plantilla-tarjeta')!;
+  const columnas = [...document.querySelectorAll<HTMLElement>('.historias__col')];
+  const inclinaciones = [2.3, -1.8, 2.7, -2.4, 1.6, -2.9];
+
+  /** Tarjeta a partir del molde. Todo lo que escribe la familia va con textContent. */
+  function tarjeta(e: ExperienciaPB, i: number): HTMLElement {
+    const card = plantilla.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    const cat = categorias[e.categoria as CategoriaId] ?? categorias.otros;
+    // Delante de las estáticas también en móvil (allí manda `order`).
+    card.style.cssText = `--tilt:${inclinaciones[i % inclinaciones.length]}deg; order:${i - 1000};`;
+    const icono = card.querySelector<HTMLElement>('.card__icon')!;
+    icono.textContent = cat.icono;
+    icono.style.setProperty('--cat', cat.color);
+    card.querySelector('.card__cat-name')!.textContent = cat.etiqueta;
+    card.querySelector('.card__etapa')!.textContent = `${etapas[e.etapa as EtapaId] ?? ''} · ${e.curso}`;
+    const enlace = card.querySelector<HTMLAnchorElement>('.card__title a')!;
+    enlace.href = `/experiencias/ver?e=${encodeURIComponent(e.slug)}`;
+    enlace.textContent = e.titulo;
+    card.querySelector('.card__excerpt')!.textContent = e.extracto;
+    const meta = card.querySelector('.card__meta')!;
+    meta.querySelector('span')!.textContent = e.seudonimo;
+    const time = meta.querySelector('time')!;
+    const iso = (e.publicada || e.created).replace(' ', 'T');
+    time.dateTime = iso;
+    time.textContent = new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    if (e.adjuntos.length > 0) {
+      const clip = document.createElement('span');
+      clip.title = 'Documentos adjuntos';
+      clip.textContent = `📎 ${e.adjuntos.length}`;
+      meta.append(clip);
+    }
+    if (e.estado === 'pendiente') {
+      const aviso = document.createElement('p');
+      aviso.className = 'etiqueta-pendiente tarjeta-pendiente';
+      aviso.textContent = 'Pendiente de revisión · solo la ves tú';
+      card.querySelector('.card__head')!.after(aviso);
+      card.querySelector('.card__actions')!.remove();
+    } else {
+      card.querySelector<HTMLButtonElement>('.btn-metoo')!.dataset.slug = e.slug;
+    }
+    return card;
+  }
+
+  async function cargarDeLaWeb() {
+    let lista: ExperienciaPB[] = [];
+    try {
+      const [pendientes, publicadas] = await Promise.all([misExperienciasPendientes(), experienciasPublicadas()]);
+      lista = [...pendientes, ...publicadas];
+    } catch {
+      // Sin servidor: se quedan solo las experiencias de la compilación.
+    }
+    // Las más recientes arriba, repartidas en fila entre las dos columnas.
+    const tarjetas = lista.map(tarjeta);
+    for (let i = tarjetas.length - 1; i >= 0; i--) columnas[i % columnas.length].prepend(tarjetas[i]);
+    if (lista.length > 0) document.querySelector('.aviso-vacio')?.remove();
+  }
+
+  await cargarDeLaWeb();
+  activarBotonesAMiTambien();
+
+  // ▲ ▼ siguen siendo un prototipo: solo cambian en pantalla.
+  for (const card of document.querySelectorAll<HTMLElement>('.card')) {
+    const votos = [...card.querySelectorAll<HTMLButtonElement>('.vote__btn')];
+    for (const btn of votos) {
+      btn.addEventListener('click', () => {
+        for (const b of votos) {
+          const activo = b.getAttribute('aria-pressed') === 'true';
+          const nuevo = b === btn ? !activo : false;
+          if (activo !== nuevo) {
+            const span = b.querySelector('span');
+            if (span) span.textContent = String(Number(span.textContent) + (nuevo ? 1 : -1));
+          }
+          b.setAttribute('aria-pressed', String(nuevo));
+        }
+      });
+    }
+  }
+</script>
+
+<style>
+  .intro {
+    padding-top: 3rem;
+  }
+  .intro > * {
+    max-width: 46rem;
+  }
+  .intro h1 {
+    font-size: clamp(2rem, 5vw, 2.8rem);
+    margin-bottom: 0.5rem;
+  }
+  .leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.5rem;
+    padding: 0;
+    list-style: none;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .leyenda__dot {
+    display: inline-block;
+    width: 0.9rem;
+    height: 0.9rem;
+    margin-right: 0.3rem;
+    vertical-align: -0.1rem;
+    border-radius: 4px;
+  }
+  .leyenda__dot--compartida {
+    border: 2px solid var(--shared);
+  }
+  .leyenda__dot--discusion {
+    border: 2px dashed var(--debate);
+  }
+  .intro__acciones {
+    margin: 1.25rem 0 0.5rem;
+  }
+  :global(.tarjeta-pendiente) {
+    margin: 0.75rem 1.25rem 0;
+  }
+  .aviso-vacio {
+    display: inline-block;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--compare) 14%, transparent);
+    font-size: 0.9rem;
+  }
+
+  /* Móvil: todo en una columna; historias en orden de relevancia (order)
+     y después el bloque «En discusión». */
+  .tablero {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    padding-top: 1.5rem;
+    padding-bottom: 3rem;
+  }
+  .historias {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding: 0 0.5rem;
+  }
+  .historias__col {
+    display: contents;
+  }
+  .debate {
+    padding: 1.5rem 1rem 2rem;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--debate) 7%, var(--bg));
+    border: 1px solid color-mix(in srgb, var(--debate) 25%, transparent);
+  }
+  .debate h2 {
+    margin: 0;
+    color: var(--debate-text);
+  }
+  .debate__intro {
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+  .debate__lista {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding: 0.5rem 0.25rem 0;
+  }
+  .debate__vacio {
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* Escritorio: 3 columnas desfasadas = 2 de historias + «En discusión». */
+  @media (min-width: 960px) {
+    .tablero {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      align-items: start;
+      gap: 2.5rem;
+    }
+    .historias {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: start;
+      gap: 2.5rem;
+      padding: 0;
+    }
+    .historias__col {
+      display: flex;
+      flex-direction: column;
+      gap: 2.5rem;
+    }
+    .historias__col:first-child {
+      padding-top: 4rem;
+    }
+    .debate {
+      margin-top: 2.5rem;
+    }
+  }
+  @media (min-width: 600px) and (max-width: 959px) {
+    .tablero {
+      max-width: 34rem;
+      margin: 0 auto;
+    }
+  }
+</style>

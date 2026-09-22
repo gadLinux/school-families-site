@@ -1,0 +1,117 @@
+---
+import Base from '../../layouts/Base.astro';
+import { categorias, etapas } from '../../data/categorias';
+import { experiencias, type Experiencia } from '../../data/experiencias';
+import Comentarios from '../../components/Comentarios.astro';
+import { imagen, trozos } from '../../lib/enlaces';
+
+export function getStaticPaths() {
+  return experiencias.map((e) => ({ params: { slug: e.slug }, props: { e } }));
+}
+
+const { e } = Astro.props as { e: Experiencia };
+const cat = categorias[e.categoria];
+const fecha = new Date(e.publicada).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+
+<Base title={e.titulo} description={e.extracto}>
+  <article class="articulo container">
+    <a class="volver" href="/experiencias">← Todas las experiencias</a>
+    <p class="articulo__cat">{cat.icono} {cat.etiqueta} · {etapas[e.etapa]} · {e.curso}</p>
+    <h1>{e.titulo}</h1>
+    <p class="articulo__meta">{e.seudonimo} · <time datetime={e.publicada}>{fecha}</time></p>
+    <div class="articulo__cuerpo">
+      {
+        e.cuerpo.map((parrafo) => {
+          const img = imagen(parrafo);
+          if (img) {
+            return (
+              <figure class="articulo__figura">
+                <a href={img.src}>
+                  <img src={img.src} alt={img.alt} loading="lazy" />
+                </a>
+                {img.alt && <figcaption>{img.alt}</figcaption>}
+              </figure>
+            );
+          }
+          return (
+          <p>
+            {trozos(parrafo).map((t) =>
+              t.href ? (
+                <a href={t.href} {...(t.href.startsWith('https://') ? { rel: 'noopener' } : {})}>
+                  {t.texto}
+                </a>
+              ) : (
+                t.texto
+              ),
+            )}
+          </p>
+          );
+        })
+      }
+    </div>
+    <div class="articulo__acciones">
+      <button class="btn-metoo" type="button" aria-pressed="false" data-slug={e.slug} data-base={e.aMiTambien}>
+        <span aria-hidden="true">🤝</span>
+        <span class="btn-metoo__n">{e.aMiTambien}</span>
+        <span>A mí también</span>
+      </button>
+      <span class="articulo__stats">▲ {e.votosArriba} · ▼ {e.votosAbajo}</span>
+    </div>
+    <Comentarios slug={e.slug} />
+  </article>
+</Base>
+
+<script>
+  import { activarBotonesAMiTambien } from '../../lib/a-mi-tambien';
+  activarBotonesAMiTambien();
+</script>
+
+<style>
+  .articulo {
+    max-width: 42rem;
+    padding-top: 2.5rem;
+  }
+  .volver {
+    font-size: 0.9rem;
+  }
+  .articulo__cat {
+    margin-top: 1.5rem;
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+  .articulo h1 {
+    font-size: clamp(1.8rem, 4.5vw, 2.5rem);
+    margin: 0.3rem 0;
+  }
+  .articulo__figura {
+    margin: 1.5rem 0;
+  }
+  .articulo__figura img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+  .articulo__figura figcaption {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .articulo__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .articulo__acciones .btn-metoo {
+    font-size: 1rem;
+    padding: 0.6rem 1rem;
+  }
+  .articulo__meta,
+  .articulo__stats {
+    color: var(--muted);
+  }
+</style>

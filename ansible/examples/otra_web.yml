@@ -1,0 +1,11 @@
+---
+# Plantilla de inventory/group_vars/all/otra_web.yml (privado, no se sube).
+# Otra web que comparte servidor y cuyo contenedor escucha solo en localhost;
+# el nginx del host le reenvía su dominio (y los Host desconocidos) por HTTP.
+otra_web_enabled: true
+otra_web_domain: otra-web.example.org
+otra_web_nginx_container: otra-web-nginx
+otra_web_http_bind: "127.0.0.1:8081"
+otra_web_https: false
+otra_web_client_max_body_size: 32m
+otra_web_proxy_read_timeout: 600s

@@ -1,0 +1,24 @@
+---
+# Se ejecutan en orden de definición: valida, mira si nginx está en marcha y
+# solo entonces recarga. En la fase de preparación nginx está parado a
+# propósito (la otra web aún ocupa 80/443): recargarlo fallaría.
+- name: Validar configuración de nginx
+  listen: reload nginx
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Comprobar si nginx está en marcha
+  listen: reload nginx
+  ansible.builtin.command: systemctl is-active nginx
+  register: nginx_proxy_activo
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Recargar nginx
+  listen: reload nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: reloaded
+  when: nginx_proxy_activo.stdout == 'active'

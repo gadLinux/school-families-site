@@ -1,0 +1,276 @@
+---
+/**
+ * Plantilla común de cada dato (CONCEPTO §4.3):
+ * gráfico → cifra clave → descripción → pregunta abierta → fuentes y CSV.
+ * Slots: el gráfico (por defecto) y `tabla`, la tabla de datos equivalente
+ * para lectores de pantalla y para comprobar cada cifra.
+ */
+import { fuentes, type Cita, type Fuente } from '../../data/fuentes';
+
+interface Props {
+  id: string;
+  titulo: string;
+  cifra?: string;
+  cifraTexto?: string;
+  descripcion: string;
+  pregunta: string;
+  leyenda: { nombre: string; color: string; estimada?: boolean }[];
+  citas: Cita[];
+  csv: string[];
+  estimacion?: boolean;
+  notas?: string[];
+  /** Discrepancia o dato que merece análisis: muestra «!» y este comentario breve. */
+  alerta?: string;
+}
+
+const { id, titulo, cifra, cifraTexto, descripcion, pregunta, leyenda, citas, csv, estimacion, notas = [], alerta } =
+  Astro.props;
+---
+
+<article class:list={['bloque', { 'bloque--alerta': alerta }]} id={id} aria-labelledby={`${id}-h`}>
+  <header class="bloque__cabecera">
+    {alerta && <span class="alerta-icono" aria-hidden="true">!</span>}
+    <h3 id={`${id}-h`}>{titulo}</h3>
+    {estimacion && <span class="etiqueta-estimacion">Estimación</span>}
+  </header>
+  {
+    alerta && (
+      <p class="bloque__alerta">
+        <strong>Merece análisis:</strong> {alerta}
+      </p>
+    )
+  }
+
+  <ul class="leyenda" aria-label="Leyenda">
+    {
+      leyenda.map((l) => (
+        <li>
+          <span class:list={['leyenda__marca', { 'leyenda__marca--estimada': l.estimada }]} style={`--c: ${l.color}`} />
+          {l.nombre}
+        </li>
+      ))
+    }
+  </ul>
+
+  <figure class="bloque__figura">
+    <slot />
+    <figcaption class="visually-hidden">{titulo}</figcaption>
+  </figure>
+
+  {
+    cifra && (
+      <p class="bloque__cifra">
+        <strong>{cifra}</strong> <span>{cifraTexto}</span>
+      </p>
+    )
+  }
+  <p>{descripcion}</p>
+  <p class="bloque__pregunta">{pregunta}</p>
+
+  {notas.map((n) => <p class="bloque__nota">{n}</p>)}
+
+  <details class="bloque__tabla">
+    <summary>Ver los datos en tabla</summary>
+    <div class="bloque__tabla-scroll"><slot name="tabla" /></div>
+  </details>
+
+  <footer class="bloque__fuentes">
+    <p class="bloque__fuentes-titulo">Fuente{citas.length > 1 ? 's' : ''}</p>
+    <ul>
+      {
+        citas.map((c) => {
+          const f: Fuente = fuentes[c.fuente];
+          return (
+            <li>
+              {c.dato && <span class="bloque__dato">{c.dato}: </span>}
+              {f.autor}, {f.url ? <a href={f.url} rel="noopener">{f.titulo}</a> : <em>{f.titulo}</em>} ({f.fecha})
+              {c.pagina && <>, pág. {c.pagina}</>}.{' '}
+              {f.consultada && <span class="bloque__meta">Consultada el {f.consultada}.</span>}
+              {f.nota && <span class="bloque__meta">{f.nota}</span>}{' '}
+              <span class="bloque__codigo">[{f.id}]</span>
+            </li>
+          );
+        })
+      }
+    </ul>
+    <p class="bloque__proponer">
+      <a href="#propuestas" data-proponer={id}>💡 Proponer algo sobre este dato</a>
+    </p>
+    <p class="bloque__descarga">
+      Descargar los datos:{' '}
+      {
+        csv.map((archivo, i) => (
+          <>
+            {i > 0 && ' · '}
+            <a href={`/datos/${archivo}`} download>
+              {archivo}
+            </a>
+          </>
+        ))
+      }
+    </p>
+  </footer>
+</article>
+
+<style>
+  .bloque {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.25rem 1rem;
+  }
+  .bloque__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 0.75rem;
+  }
+  .bloque--alerta {
+    border-color: color-mix(in srgb, var(--shared) 45%, var(--border));
+    box-shadow: inset 4px 0 0 var(--shared);
+  }
+  .alerta-icono {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--shared);
+    color: #fff;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    align-self: center;
+  }
+  .bloque__alerta {
+    margin: 0.6rem 0 0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--shared) 8%, var(--surface));
+    font-size: 0.95rem;
+  }
+  .bloque__alerta strong {
+    color: var(--shared);
+  }
+  .bloque__proponer {
+    margin: 0.5rem 0 0;
+    font-weight: 700;
+  }
+  .bloque__cabecera h3 {
+    flex: 1 1 12rem; /* encoge antes de que el «!» salte de línea */
+    margin: 0;
+    font-size: 1.25rem;
+  }
+  .etiqueta-estimacion {
+    padding: 0.1rem 0.55rem;
+    border: 2px dashed var(--debate);
+    border-radius: 6px;
+    color: var(--debate-text);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    margin: 0.75rem 0 0.25rem;
+    padding: 0;
+    list-style: none;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .leyenda li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .leyenda__marca {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 3px;
+    background: var(--c);
+  }
+  .leyenda__marca--estimada {
+    background: repeating-linear-gradient(45deg, var(--c) 0 3px, transparent 3px 6px);
+    border: 1.5px dashed var(--c);
+  }
+  .bloque__figura {
+    margin: 0.5rem 0 0.75rem;
+  }
+  .bloque__cifra {
+    margin: 0 0 0.25rem;
+  }
+  .bloque__cifra strong {
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+    color: var(--accent);
+  }
+  .bloque__pregunta {
+    padding-left: 0.8rem;
+    border-left: 3px solid var(--accent);
+    font-style: italic;
+  }
+  .bloque__nota {
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .bloque__tabla {
+    margin: 0.75rem 0;
+  }
+  /* Tablas anchas: se desplazan dentro del bloque, no la página. Va en un div
+     porque <details> no recorta su contenido de forma fiable. */
+  .bloque__tabla-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .bloque__tabla summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .bloque__tabla :global(table) {
+    width: 100%;
+    margin-top: 0.5rem;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .bloque__tabla :global(th),
+  .bloque__tabla :global(td) {
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+  .bloque__tabla :global(th:first-child),
+  .bloque__tabla :global(td:first-child) {
+    text-align: left;
+  }
+  .bloque__fuentes {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .bloque__fuentes-titulo {
+    margin: 0;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .bloque__fuentes ul {
+    margin: 0.25rem 0;
+    padding-left: 1.1rem;
+  }
+  .bloque__codigo {
+    font-family: ui-monospace, monospace;
+    font-size: 0.85rem;
+  }
+  .bloque__dato {
+    font-weight: 700;
+  }
+  .bloque__descarga {
+    margin: 0.5rem 0 0;
+  }
+</style>

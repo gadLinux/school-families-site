@@ -1,0 +1,22 @@
+---
+# Marcha atrás: para el nginx del host para que la otra web pueda volver a
+# ocupar 80/443. familiasdiegovelazquez.es deja de estar disponible.
+#   ansible-playbook playbooks/rollback-convivencia.yml --vault-password-file .vault_pass
+#
+# Los puertos de la otra web son de su propio proyecto: tras este playbook,
+# hay que devolverle 80/443 allí y relanzar su despliegue.
+- name: Liberar 80/443 para la otra web
+  hosts: web
+  become: true
+  tasks:
+    - name: Parar y deshabilitar nginx del host
+      ansible.builtin.systemd_service:
+        name: nginx
+        state: stopped
+        enabled: false
+
+    - name: Siguiente paso, en el proyecto de la otra web
+      ansible.builtin.debug:
+        msg: >-
+          nginx del host parado. Ahora devuelve a la otra web sus puertos
+          80/443 desde su propio proyecto y relanza su despliegue.

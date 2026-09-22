@@ -1,0 +1,50 @@
+---
+# El vhost de la otra web solo existe cuando la convivencia está activa;
+# así, al desactivarla, la plantilla no expone un proxy a un puerto local muerto.
+- name: Virtual hosts activos
+  ansible.builtin.set_fact:
+    nginx_vhosts_active: >-
+      {{ nginx_vhosts
+         + (otra_web_enabled | ternary(
+             [{ "name": "otra-web", "src": "otra-web.conf.j2" }], [])) }}
+
+- name: Comprobar si ya existe el certificado de la otra web
+  ansible.builtin.stat:
+    path: "{{ letsencrypt_dir }}/live/{{ otra_web_domain }}/fullchain.pem"
+  register: nginx_proxy_otra_web_cert
+  when: otra_web_enabled and otra_web_https
+
+- name: Plantillas de virtual hosts
+  ansible.builtin.template:
+    src: "sites/{{ item.src }}"
+    dest: "{{ nginx_sites_available }}/{{ item.name }}.conf"
+    mode: "0644"
+  loop: "{{ nginx_vhosts_active }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    site_cert_ready: "{{ nginx_proxy_site_cert.stat.exists }}"
+    otra_web_cert_ready: >-
+      {{ nginx_proxy_otra_web_cert.stat.exists
+         if (otra_web_enabled and otra_web_https and 'nginx_proxy_otra_web_cert' in vars) else false }}
+  notify: reload nginx
+
+- name: Activar virtual hosts
+  ansible.builtin.file:
+    src: "{{ nginx_sites_available }}/{{ item.name }}.conf"
+    dest: "{{ nginx_sites_enabled }}/{{ item.name }}.conf"
+    state: link
+    # En simulación la plantilla aún no existe: se permite el enlace «colgando».
+    force: "{{ ansible_check_mode }}"
+  loop: "{{ nginx_vhosts_active }}"
+  loop_control:
+    label: "{{ item.name }}"
+  notify: reload nginx
+
+- name: Desactivar el vhost de la otra web (convivencia apagada)
+  ansible.builtin.file:
+    path: "{{ item }}/otra-web.conf"
+    state: absent
+  loop: ["{{ nginx_sites_enabled }}", "{{ nginx_sites_available }}"]
+  when: not otra_web_enabled
+  notify: reload nginx

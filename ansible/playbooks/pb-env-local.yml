@@ -1,0 +1,27 @@
+---
+# Genera ../pb/.env para desarrollo a partir de las variables y del vault,
+# así la contraseña de Gmail solo vive cifrada en el repositorio.
+#
+#   ansible-playbook playbooks/pb-env-local.yml --ask-vault-pass
+#
+# pb/dev.sh sigue enviando los correos a Mailpit salvo PB_DEV_REAL_SMTP=1.
+- name: Generar pb/.env local desde el vault
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Comprobar la contraseña de aplicación (16 letras, sin comillas)
+      ansible.builtin.assert:
+        that:
+          - pb_smtp_pass_limpia is match('^[a-zA-Z]{16}$')
+        fail_msg: >-
+          vault_pb_smtp_pass no parece una contraseña de aplicación de Gmail
+          (16 letras). Revísala con: ansible-vault edit inventory/group_vars/all/vault.yml
+        quiet: true
+
+    - name: Escribir pb/.env (solo legible por tu usuario)
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/pb.env.j2"
+        dest: "{{ playbook_dir }}/../../pb/.env"
+        mode: "0600"
+      no_log: true

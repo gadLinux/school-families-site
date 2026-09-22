@@ -1,0 +1,4 @@
+---
+# Nombre del contenedor nginx de la otra web (se define en otra_web.yml).
+otra_web_nginx_container: ""
+otra_web_health_path: /health

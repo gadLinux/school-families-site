@@ -1,0 +1,274 @@
+---
+/**
+ * Moderación de experiencias: lista las pendientes tal como se verán, con sus
+ * adjuntos, y permite publicarlas o rechazarlas con un motivo.
+ * La página es pública, pero PocketBase solo devuelve las pendientes y solo
+ * deja cambiarlas a las cuentas de la colección `moderadores`.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Moderación" description="Revisión de experiencias antes de publicarlas.">
+  <section class="container moderacion">
+    <h1>Moderación</h1>
+    <p class="intro__lead">
+      Revisa cada experiencia antes de publicarla: sin nombres, sin datos que identifiquen a nadie, hechos y no
+      insultos. Abre también los adjuntos.
+    </p>
+    <p class="moderacion__estado" role="status">Cargando…</p>
+    <ol class="moderacion__lista"></ol>
+  </section>
+</Base>
+
+<template id="plantilla-moderacion">
+  <li class="pendiente">
+    <p class="pendiente__meta"></p>
+    <h2 class="pendiente__titulo"></h2>
+    <p class="pendiente__extracto"></p>
+    <div class="pendiente__cuerpo prosa"></div>
+    <div class="pendiente__adjuntos" hidden>
+      <p><strong>Adjuntos</strong> (ábrelos y comprueba que no se ve ningún nombre, firma ni cara):</p>
+      <ul></ul>
+    </div>
+    <details class="pendiente__lista-control">
+      <summary>Lista de control</summary>
+      <ul>
+        <li>Sin nombres ni datos que identifiquen a alumnos o profesores.</li>
+        <li>Adjuntos revisados y anonimizados.</li>
+        <li>Hechos u opiniones presentadas como tales; sin insultos ni suposiciones sobre intenciones.</li>
+        <li>Nada sobre la salud o la vida privada de un menor.</li>
+        <li>Categoría y curso correctos.</li>
+      </ul>
+    </details>
+    <div class="pendiente__acciones">
+      <button class="btn" type="button" data-accion="publicar">✅ Publicar</button>
+      <button class="btn btn--ghost" type="button" data-accion="rechazar">Rechazar…</button>
+      <span class="pendiente__estado" role="status"></span>
+    </div>
+    <form class="pendiente__rechazo" hidden>
+      <label>
+        Motivo (se envía al autor por email)
+        <textarea name="motivo" rows="3" maxlength="1000" required></textarea>
+      </label>
+      <button class="btn" type="submit">Confirmar rechazo</button>
+    </form>
+  </li>
+</template>
+
+<script>
+  import { categorias, etapas, type CategoriaId, type EtapaId } from '../data/categorias';
+  import { renderizar } from '../lib/markdown';
+  import {
+    asegurarSesion,
+    experienciasPendientes,
+    mensajeError,
+    moderarExperiencia,
+    pb,
+    resolverAdjuntos,
+    soyModerador,
+    type ExperienciaPB,
+  } from '../lib/participacion';
+
+  const estado = document.querySelector<HTMLElement>('.moderacion__estado')!;
+  const lista = document.querySelector<HTMLOListElement>('.moderacion__lista')!;
+  const plantilla = document.querySelector<HTMLTemplateElement>('#plantilla-moderacion')!;
+
+  function pintar(e: ExperienciaPB) {
+    const li = plantilla.content.firstElementChild!.cloneNode(true) as HTMLLIElement;
+    const cat = categorias[e.categoria as CategoriaId] ?? categorias.otros;
+    const fecha = new Date(e.created.replace(' ', 'T')).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
+    // textContent para lo que escribe la familia; el cuerpo pasa por DOMPurify.
+    li.querySelector('.pendiente__meta')!.textContent =
+      `${e.seudonimo} · ${fecha} · ${cat.icono} ${cat.etiqueta} · ${etapas[e.etapa as EtapaId] ?? e.etapa} · ${e.curso}`;
+    li.querySelector('.pendiente__titulo')!.textContent = e.titulo;
+    li.querySelector('.pendiente__extracto')!.textContent = `Resumen de la tarjeta: ${e.extracto}`;
+    li.querySelector('.pendiente__cuerpo')!.innerHTML = renderizar(e.cuerpo, resolverAdjuntos(e));
+    if (e.adjuntos.length > 0) {
+      const caja = li.querySelector<HTMLElement>('.pendiente__adjuntos')!;
+      for (const nombre of e.adjuntos) {
+        const a = document.createElement('a');
+        a.href = pb.files.getURL(e, nombre);
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = nombre;
+        const item = document.createElement('li');
+        item.append(a);
+        caja.querySelector('ul')!.append(item);
+      }
+      caja.hidden = false;
+    }
+
+    const estadoItem = li.querySelector<HTMLElement>('.pendiente__estado')!;
+    const rechazo = li.querySelector<HTMLFormElement>('.pendiente__rechazo')!;
+
+    async function decidir(nuevo: 'publicada' | 'rechazada', motivo = '') {
+      for (const b of li.querySelectorAll('button')) b.disabled = true;
+      estadoItem.textContent = 'Guardando…';
+      try {
+        await moderarExperiencia(e.id, nuevo, motivo);
+        li.classList.add('pendiente--hecha');
+        li.replaceChildren();
+        const hecho = document.createElement('p');
+        hecho.textContent = nuevo === 'publicada' ? `Publicada: «${e.titulo}». ` : `Rechazada: «${e.titulo}». Se ha avisado al autor.`;
+        if (nuevo === 'publicada') {
+          const ver = document.createElement('a');
+          ver.href = `/experiencias/ver?e=${encodeURIComponent(e.slug)}`;
+          ver.textContent = 'Verla en la web';
+          hecho.append(ver);
+        }
+        li.append(hecho);
+      } catch (err) {
+        estadoItem.textContent = mensajeError(err);
+        for (const b of li.querySelectorAll('button')) b.disabled = false;
+      }
+    }
+
+    li.querySelector('[data-accion=publicar]')!.addEventListener('click', () => decidir('publicada'));
+    li.querySelector('[data-accion=rechazar]')!.addEventListener('click', () => {
+      rechazo.hidden = false;
+      rechazo.querySelector('textarea')!.focus();
+    });
+    rechazo.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      decidir('rechazada', String(new FormData(rechazo).get('motivo')).trim());
+    });
+    lista.append(li);
+  }
+
+  async function cargar() {
+    lista.replaceChildren();
+    estado.hidden = false;
+    if (!(await asegurarSesion())) {
+      estado.textContent = 'Entra con tu cuenta de moderación para revisar experiencias.';
+      return;
+    }
+    if (!(await soyModerador())) {
+      estado.textContent = 'Esta cuenta no tiene permiso de moderación.';
+      return;
+    }
+    try {
+      const pendientes = await experienciasPendientes();
+      estado.textContent = pendientes.length === 0 ? 'No hay experiencias pendientes. 🎉' : `${pendientes.length} pendiente(s), de la más antigua a la más reciente.`;
+      pendientes.forEach(pintar);
+    } catch (err) {
+      estado.textContent = mensajeError(err);
+    }
+  }
+
+  document.addEventListener('sesion:cambio', cargar);
+  cargar();
+</script>
+
+<style>
+  .moderacion {
+    max-width: 48rem;
+    padding-top: 2.5rem;
+    padding-bottom: 3rem;
+  }
+  .moderacion h1 {
+    font-size: clamp(1.8rem, 4.5vw, 2.5rem);
+    margin-bottom: 0.5rem;
+  }
+  .moderacion__estado {
+    color: var(--muted);
+  }
+  .moderacion__lista {
+    margin: 1.5rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 2rem;
+  }
+</style>
+
+<style is:global>
+  /* Los elementos vienen de un <template>: estilos globales, acotados por clase. */
+  .pendiente {
+    padding: 1.25rem 1.5rem;
+    border: 1px dashed var(--debate);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .pendiente [hidden] {
+    display: none;
+  }
+  .pendiente--hecha {
+    border-style: solid;
+    border-color: var(--border);
+    color: var(--muted);
+  }
+  .pendiente__meta {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .pendiente__titulo {
+    margin: 0.3rem 0 0.5rem;
+  }
+  .pendiente__extracto {
+    margin: 0 0 1rem;
+    padding: 0.4rem 0.6rem;
+    border-left: 3px solid var(--border);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .pendiente__cuerpo {
+    padding: 1rem 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .pendiente__adjuntos {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
+  .pendiente__adjuntos ul {
+    margin: 0.3rem 0 0;
+  }
+  .pendiente__lista-control {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
+  .pendiente__lista-control summary {
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .pendiente__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+  .pendiente__acciones .btn,
+  .pendiente__rechazo .btn {
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+  }
+  .pendiente__acciones .btn--ghost {
+    border: 2px solid var(--accent);
+  }
+  .pendiente__estado {
+    color: var(--muted);
+  }
+  .pendiente__rechazo {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  .pendiente__rechazo label {
+    display: grid;
+    gap: 0.3rem;
+    font-weight: 700;
+  }
+  .pendiente__rechazo textarea {
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+  }
+  .pendiente__rechazo .btn {
+    justify-self: start;
+  }
+</style>

@@ -1,0 +1,53 @@
+---
+# Configuración completa del servidor. Idempotente: se puede relanzar.
+#
+# Convive con la otra web, que hoy ocupa
+# 80/443. El despliegue va en dos fases para que su corte dure lo mínimo:
+#
+#   1. Preparar (sin tocar la otra web): web, nginx configurado pero
+#      parado, y PocketBase.
+#        ansible-playbook playbooks/site.yml --skip-tags arranque --vault-password-file .vault_pass
+#   2. En el proyecto de la otra web, mover su contenedor a localhost (ver
+#      roles/convivencia/tasks/main.yml). Desde aquí su web deja de verse…
+#   3. …hasta que se arranca nginx del host, que atiende los dos dominios:
+#        ansible-playbook playbooks/site.yml --vault-password-file .vault_pass
+#
+#   Simulación: añade --check --diff a cualquiera de los dos.
+- name: Servidor web de familiasdiegovelazquez.es
+  hosts: web
+  become: true
+  tasks:
+    - name: Publicar la web
+      ansible.builtin.import_role:
+        name: web
+
+    - name: Instalar y configurar nginx (sin arrancar)
+      ansible.builtin.import_role:
+        name: nginx_proxy
+
+    - name: Backend de participación (PocketBase)
+      ansible.builtin.import_role:
+        name: pocketbase
+
+    - name: Comprobar que la otra web ya escucha solo en localhost
+      ansible.builtin.import_role:
+        name: convivencia
+      when: otra_web_enabled
+      tags: [arranque]
+
+    - name: Arrancar nginx
+      ansible.builtin.include_role:
+        name: nginx_proxy
+        tasks_from: start
+        apply:
+          tags: [arranque]
+      tags: [arranque]
+
+    - name: Certificado HTTPS
+      ansible.builtin.include_role:
+        name: nginx_proxy
+        tasks_from: certificates
+        apply:
+          tags: [arranque]
+      when: not ansible_check_mode
+      tags: [arranque]

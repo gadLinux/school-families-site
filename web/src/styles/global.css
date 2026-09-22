@@ -1,0 +1,194 @@
+@import '@fontsource/atkinson-hyperlegible/400.css';
+@import '@fontsource/atkinson-hyperlegible/700.css';
+@import '@fontsource/source-serif-4/600.css';
+
+:root {
+  color-scheme: light;
+  --bg: #fbf8f3;
+  --surface: #ffffff;
+  --text: #1f2328;
+  --muted: #5b6168;
+  --border: #e7e1d6;
+  --accent: #2f7d6d;
+  --accent-contrast: #ffffff;
+  --compare: #c27c3a;
+  --shared: #b8452f; /* temas compartidos y avisos «!» */
+  --debate: #a86b00; /* en discusión, estimaciones, pendiente */
+  /* Variantes para TEXTO: --compare y --debate no llegan a 4,5:1 sobre el fondo. */
+  --compare-text: #9b632e;
+  --debate-text: #976000;
+
+  --font-body: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  --font-heading: 'Source Serif 4', Georgia, serif;
+  --radius: 12px;
+  --max: 68rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 125%; /* 20px: público de 40 años en adelante, lectura cómoda */
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+a {
+  color: var(--accent);
+}
+
+.container {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.7rem 1.3rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+}
+
+:focus-visible {
+  outline: 3px solid var(--compare);
+  outline-offset: 2px;
+}
+
+/* Primer párrafo de una sección: qué es y para qué sirve (BRANDING.md §9). */
+.intro__lead {
+  font-size: 1.15rem;
+  max-width: 44rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* «A mí también»: tarjetas y artículo (comportamiento en lib/a-mi-tambien.ts). */
+.btn-metoo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-metoo[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 70%, black);
+}
+.btn-metoo[aria-pressed='true']::after {
+  content: '✓';
+}
+.btn-metoo:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Texto de una experiencia escrita en Markdown (editor, vista previa y artículo). */
+.prosa {
+  overflow-wrap: anywhere;
+}
+.prosa > :first-child {
+  margin-top: 0;
+}
+.prosa h2,
+.prosa h3,
+.prosa h4 {
+  margin: 1.6rem 0 0.5rem;
+}
+.prosa blockquote {
+  margin: 1rem 0;
+  padding: 0.25rem 1rem;
+  border-left: 4px solid var(--border);
+  color: var(--muted);
+}
+.prosa figure {
+  margin: 1.5rem 0;
+}
+.prosa img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.prosa figcaption {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.prosa table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.prosa th,
+.prosa td {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+}
+.prosa code {
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+  font-size: 0.9em;
+}
+.prosa pre {
+  overflow-x: auto;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--muted) 8%, transparent);
+}
+.prosa__falta {
+  color: var(--debate-text);
+  font-style: italic;
+}
+
+/* Señal «Pendiente»: contenido que espera moderación y solo ve su autor. */
+.etiqueta-pendiente {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border: 1px dashed var(--debate);
+  border-radius: 999px;
+  color: var(--debate-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+}

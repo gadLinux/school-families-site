@@ -1,0 +1,289 @@
+---
+import Base from '../layouts/Base.astro';
+import { categorias, etapas } from '../data/categorias';
+import { experiencias } from '../data/experiencias';
+import { clasificar } from '../lib/ranking';
+import { COMPARTIDO_MIN } from '../lib/reglas';
+
+const { compartidas } = clasificar(experiencias);
+const destacadas = compartidas.slice(0, 5);
+
+// Por qué una web anónima puede ser fiable: lo que prometemos a quien lee.
+// `texto` es HTML propio (se pinta con set:html): nunca contenido de usuarios.
+const compromisos = [
+  {
+    icono: '🕶️',
+    titulo: 'Anónima, si quieres',
+    texto:
+      'Entras con tu email para que sepamos que eres una persona real, <strong>pero tu email nunca se muestra</strong>: solo el seudónimo que elijas, por ejemplo «Madre de 2.º ESO». Entendemos que muchas familias no quieran dar su nombre, por pudor o por miedo a represalias contra sus hijos o contra ellas mismas.',
+  },
+  {
+    icono: '🔎',
+    titulo: 'Anónima no quiere decir menos fiable',
+    texto:
+      'Cada dato que publicamos lleva su fuente, y la fuente se tiene que poder comprobar: un documento oficial, una web pública o un documento del propio centro. Si no se puede verificar, no se publica.',
+  },
+  {
+    icono: '⚖️',
+    titulo: 'Todo se revisa antes de publicarse',
+    texto:
+      'Cada experiencia y cada comentario pasan una revisión, también legal, antes de salir: sin nombres de alumnos ni de profesores, sin insultos, con los hechos separados de las opiniones.',
+  },
+  {
+    icono: '🤝',
+    titulo: 'Siempre se puede rebatir',
+    texto:
+      'Si algo no es correcto, cualquiera puede rebatirlo o aportar pruebas de lo contrario, también el propio centro. Lo revisaremos, lo corregiremos y, si nos hemos equivocado, pediremos perdón.',
+  },
+];
+
+const pasos = [
+  { icono: '✍️', titulo: 'Escribes', texto: 'Cuentas tu experiencia con un seudónimo. Tu email nunca se muestra.' },
+  { icono: '🔍', titulo: 'La revisamos', texto: 'Antes de publicar comprobamos que no haya nombres ni datos personales, también desde el punto de vista legal.' },
+  { icono: '🤝', titulo: 'Se publica', texto: 'Otras familias pueden decir «a mí también» y valorar si están de acuerdo.' },
+];
+---
+
+<Base title="Inicio">
+  <section class="hero container">
+    <h1>Un espacio para las familias del instituto.</h1>
+    <p class="hero__lead">Compartir, entender, mejorar.</p>
+    <p>
+      Somos familias del IES Diego Velázquez, nuestro instituto público de Torrelodones. Creamos este
+      espacio para hacer visible lo que pasa en él: contarnos cómo lo vivimos —lo que funciona y lo que
+      se puede mejorar— y consultar sus datos con calma y con fuentes.
+    </p>
+    <p class="hero__oficial">
+      Esta no es la web del instituto. La web oficial del centro está en{' '}
+      <a href="https://site.educa.madrid.org/ies.velazquez.torrelodones/" rel="noopener">site.educa.madrid.org/ies.velazquez.torrelodones</a>.
+    </p>
+    <p class="hero__acciones">
+      <a class="btn" href="/experiencias/nueva">✍️ Cuenta tu experiencia</a>
+      <a class="btn btn--ghost" href="/datos">Ver los datos</a>
+    </p>
+  </section>
+
+  <section class="container compromisos" aria-labelledby="compromisos-titulo">
+    <h2 id="compromisos-titulo">Anónima, pero con fuentes</h2>
+    <ul class="compromisos__lista">
+      {
+        compromisos.map((c) => (
+          <li class="compromiso">
+            <h3>
+              <span class="compromiso__icono" aria-hidden="true">{c.icono}</span> {c.titulo}
+            </h3>
+            <p set:html={c.texto} />
+          </li>
+        ))
+      }
+    </ul>
+    <p class="compromisos__contacto">
+      ¿Quieres rebatir algo o aportar pruebas? Coméntalo en la propia publicación o escríbenos a{' '}
+      <a href="mailto:familias.diego.velazquez@gmail.com">familias.diego.velazquez@gmail.com</a>.
+    </p>
+  </section>
+
+  {
+    destacadas.length > 0 && (
+      <section class="container compartidos" aria-labelledby="compartidos-titulo">
+        <h2 id="compartidos-titulo">🤝 Temas que comparten varias familias</h2>
+        <p class="compartidos__intro">
+          Cuando más de {COMPARTIDO_MIN - 1} familias dicen «a mí también», el tema aparece aquí.
+        </p>
+        <ol class="compartidos__lista">
+          {destacadas.map((e) => (
+            <li class="compartido">
+              <span class="compartido__n">
+                <strong>{e.aMiTambien}</strong>
+                <span>familias</span>
+              </span>
+              <span class="compartido__texto">
+                <a href={`/experiencias/${e.slug}`}>{e.titulo}</a>
+                <span class="compartido__cat">
+                  {categorias[e.categoria].icono} {categorias[e.categoria].etiqueta} · {etapas[e.etapa]}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
+        <a class="btn btn--ghost" href="/experiencias">Ver todas las experiencias</a>
+      </section>
+    )
+  }
+
+  <section class="container">
+    <h2>Cómo funciona</h2>
+    <ol class="pasos">
+      {
+        pasos.map((p) => (
+          <li class="paso">
+            <span class="paso__icono" aria-hidden="true">{p.icono}</span>
+            <h3>{p.titulo}</h3>
+            <p>{p.texto}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    padding: 4rem 1rem 2rem;
+    max-width: 44rem;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    margin: 0 0 0.5rem;
+  }
+  .hero__lead {
+    font-size: 1.35rem;
+    color: var(--accent);
+    font-weight: 700;
+    margin-top: 0;
+  }
+  .hero__oficial {
+    overflow-wrap: anywhere;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .compromisos {
+    margin-top: 1rem;
+    margin-bottom: 3rem;
+  }
+  .compromisos h2 {
+    margin-bottom: 1rem;
+  }
+  .compromisos__lista {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 1rem;
+  }
+  @media (min-width: 600px) {
+    .compromisos__lista {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .compromiso {
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .compromiso h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.4rem;
+    font-size: 1.15rem;
+  }
+  .compromiso__icono {
+    font-size: 1.4rem;
+  }
+  .compromiso p :global(strong) {
+    color: var(--text);
+  }
+  .compromiso p {
+    margin: 0;
+    color: var(--muted);
+  }
+  .compromisos__contacto {
+    margin-top: 1rem;
+    color: var(--muted);
+  }
+  .hero__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+  .compartidos {
+    margin-top: 1rem;
+    margin-bottom: 3rem;
+  }
+  .compartidos h2 {
+    color: var(--shared);
+    margin-bottom: 0.25rem;
+  }
+  .compartidos__intro {
+    color: var(--muted);
+    margin-top: 0;
+  }
+  .compartidos__lista {
+    list-style: none;
+    padding: 0;
+    margin: 1.25rem 0 1.5rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .compartido {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.9rem 1.1rem;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border-left: 5px solid var(--shared);
+    box-shadow: 0 4px 14px rgb(31 35 40 / 0.07);
+  }
+  .compartido__n {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 4.2rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--shared) 12%, var(--surface));
+    color: var(--shared);
+    line-height: 1.1;
+  }
+  .compartido__n strong {
+    font-size: 1.5rem;
+  }
+  .compartido__n span {
+    font-size: 0.85rem;
+  }
+  .compartido__texto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .compartido__texto a {
+    color: var(--text);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .compartido__texto a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .compartido__cat {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .pasos {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  }
+  .paso {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+  }
+  .paso__icono {
+    font-size: 1.8rem;
+  }
+  .paso h3 {
+    margin: 0.5rem 0 0.25rem;
+  }
+  .paso p {
+    margin: 0;
+    color: var(--muted);
+  }
+</style>

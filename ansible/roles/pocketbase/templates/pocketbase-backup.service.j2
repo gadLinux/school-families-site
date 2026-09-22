@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Copia de la base de datos de PocketBase
+
+[Service]
+Type=oneshot
+# .backup es seguro con PocketBase en marcha (copia consistente de SQLite).
+ExecStart=/bin/sh -c 'd={{ pb_backup_dir }}/$(date +%%F); mkdir -p "$d" && \
+  sqlite3 {{ pb_root }}/pb_data/data.db ".backup $d/data.db" && \
+  sqlite3 {{ pb_root }}/pb_data/auxiliary.db ".backup $d/auxiliary.db" && \
+  cp -a {{ pb_root }}/pb_data/storage "$d/" 2>/dev/null; \
+  find {{ pb_backup_dir }} -mindepth 1 -maxdepth 1 -type d -mtime +{{ pb_backup_keep_days }} -exec rm -rf {} +'

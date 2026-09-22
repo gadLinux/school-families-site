@@ -1,0 +1,23 @@
+---
+nginx_packages:
+  - nginx
+  - certbot
+nginx_sites_available: /etc/nginx/sites-available
+nginx_sites_enabled: /etc/nginx/sites-enabled
+nginx_snippets_dir: /etc/nginx/snippets
+letsencrypt_dir: /etc/letsencrypt
+
+# Orden: 00 = servidor por defecto (rechaza Hosts desconocidos).
+# El vhost de la otra web se añade en tasks/vhosts.yml cuando otra_web_enabled.
+nginx_vhosts:
+  - { name: "00-default", src: "default.conf.j2" }
+  - { name: "{{ site_domain }}", src: "site.conf.j2" }
+
+# ── Otra web en el mismo servidor (desactivada por defecto) ────────────
+# Los valores reales van en inventory/group_vars/all/otra_web.yml (privado).
+otra_web_enabled: false
+otra_web_domain: otra-web.example.org
+otra_web_http_bind: "127.0.0.1:8081"    # donde escucha su contenedor (solo local)
+otra_web_https: false                   # true = el host le emite certificado y le da HTTPS
+otra_web_client_max_body_size: 32m
+otra_web_proxy_read_timeout: 600s

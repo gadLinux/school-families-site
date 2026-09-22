@@ -1,0 +1,9 @@
+---
+- name: Arrancar y habilitar nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Aplicar cambios de configuración pendientes
+  ansible.builtin.meta: flush_handlers

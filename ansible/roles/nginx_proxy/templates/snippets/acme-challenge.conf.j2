@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+location ^~ /.well-known/acme-challenge/ {
+    root {{ certbot_webroot }};
+    default_type "text/plain";
+    try_files $uri =404;
+}

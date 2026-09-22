@@ -1,0 +1,32 @@
+# {{ ansible_managed }}
+# Servidor por defecto: peticiones cuyo Host no coincide con ningún sitio.
+{% if otra_web_enabled | bool %}
+# Hoy la otra web responde a cualquier Host por HTTP (p. ej. por la IP o el
+# nombre del VPS): se conserva, reenviándole esas peticiones.
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    client_max_body_size {{ otra_web_client_max_body_size }};
+
+    location / {
+        include snippets/proxy-otra-web.conf;
+    }
+}
+{% else %}
+# Sin otros sitios: se cierra la conexión sin responder (444).
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 444;
+}
+{% endif %}
+
+# HTTPS para Host desconocido: se corta el handshake (no se expone ningún certificado).
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+}

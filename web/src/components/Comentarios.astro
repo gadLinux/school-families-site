@@ -1,0 +1,202 @@
+---
+/**
+ * Conversación de una experiencia. Se carga en el navegador desde PocketBase:
+ * comentarios publicados + los pendientes de quien los escribió (solo los ve
+ * su autor). Todo comentario nuevo espera a la moderación.
+ */
+interface Props {
+  slug?: string;
+}
+const { slug = '' } = Astro.props;
+---
+
+<section class="conversacion" id="conversacion" data-slug={slug} aria-labelledby="conversacion-titulo">
+  <h2 id="conversacion-titulo">💬 Conversación</h2>
+  <p class="conversacion__normas">
+    Todos los comentarios se revisan antes de publicarse. Sin nombres ni datos que permitan identificar a
+    nadie: ni alumnado ni profesorado.
+  </p>
+
+  <ol class="conversacion__lista" aria-live="polite">
+    <li class="conversacion__vacio">Cargando…</li>
+  </ol>
+
+  <form class="conversacion__form">
+    <label for="comentario-texto">Tu comentario</label>
+    <textarea id="comentario-texto" name="texto" rows="4" minlength="3" maxlength="2000" required></textarea>
+    <div class="conversacion__acciones">
+      <button class="btn" type="submit">Enviar a revisión</button>
+      <span class="conversacion__estado" role="status"></span>
+    </div>
+  </form>
+</section>
+
+<template id="plantilla-comentario">
+  <li class="comentario">
+    <p class="comentario__cabecera">
+      <strong class="comentario__autor"></strong>
+      <time class="comentario__fecha"></time>
+      <span class="comentario__pendiente" hidden>Pendiente de revisión · solo lo ves tú</span>
+    </p>
+    <p class="comentario__texto"></p>
+  </li>
+</template>
+
+<script>
+  import { asegurarSesion, comentar, comentarios, mensajeError, type Comentario } from '../lib/participacion';
+
+  const seccion = document.querySelector<HTMLElement>('#conversacion')!;
+  // En /experiencias/ver la experiencia llega en la dirección (?e=slug).
+  const slug = seccion.dataset.slug || new URLSearchParams(location.search).get('e') || '';
+  const lista = seccion.querySelector<HTMLOListElement>('.conversacion__lista')!;
+  const form = seccion.querySelector<HTMLFormElement>('.conversacion__form')!;
+  const estado = seccion.querySelector<HTMLElement>('.conversacion__estado')!;
+  const plantilla = document.querySelector<HTMLTemplateElement>('#plantilla-comentario')!;
+
+  function pintar(items: Comentario[]) {
+    lista.replaceChildren();
+    if (items.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'conversacion__vacio';
+      li.textContent = 'Todavía no hay comentarios. Puedes ser la primera familia en comentar.';
+      lista.append(li);
+      return;
+    }
+    for (const c of items) {
+      const li = plantilla.content.firstElementChild!.cloneNode(true) as HTMLLIElement;
+      // textContent, nunca innerHTML: el texto viene de usuarios.
+      li.querySelector('.comentario__autor')!.textContent = c.seudonimo;
+      const fecha = li.querySelector<HTMLTimeElement>('.comentario__fecha')!;
+      fecha.dateTime = c.created;
+      fecha.textContent = new Date(c.created.replace(' ', 'T')).toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+      li.querySelector('.comentario__texto')!.textContent = c.texto;
+      if (c.pendiente) {
+        li.classList.add('comentario--pendiente');
+        li.querySelector<HTMLElement>('.comentario__pendiente')!.hidden = false;
+      }
+      lista.append(li);
+    }
+  }
+
+  async function cargar() {
+    try {
+      pintar(await comentarios(slug));
+    } catch {
+      lista.innerHTML = '<li class="conversacion__vacio">No se han podido cargar los comentarios.</li>';
+    }
+  }
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!(await asegurarSesion())) return;
+    const boton = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+    const texto = String(new FormData(form).get('texto'));
+    boton.disabled = true;
+    estado.textContent = '';
+    try {
+      await comentar(slug, texto);
+      form.reset();
+      estado.textContent = 'Gracias. Lo revisaremos antes de publicarlo.';
+      await cargar();
+    } catch (err) {
+      estado.textContent = mensajeError(err);
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  document.addEventListener('sesion:cambio', cargar);
+  cargar();
+</script>
+
+<style>
+  .conversacion {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    scroll-margin-top: 1rem;
+  }
+  .conversacion h2 {
+    margin: 0 0 0.25rem;
+  }
+  .conversacion__normas {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .conversacion__lista {
+    margin: 1.25rem 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.9rem;
+  }
+  .conversacion__vacio {
+    color: var(--muted);
+    font-style: italic;
+  }
+  .comentario {
+    padding: 0.9rem 1rem;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .comentario--pendiente {
+    border-style: dashed;
+    background: color-mix(in srgb, var(--debate) 6%, var(--surface));
+  }
+  .comentario__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin: 0 0 0.35rem;
+    font-size: 0.9rem;
+  }
+  .comentario__fecha {
+    color: var(--muted);
+  }
+  .comentario__pendiente {
+    color: var(--debate-text);
+    font-weight: 700;
+  }
+  .comentario__texto {
+    margin: 0;
+    white-space: pre-line;
+  }
+  .conversacion__form {
+    display: grid;
+    gap: 0.4rem;
+  }
+  .conversacion__form label {
+    font-weight: 700;
+  }
+  .conversacion__form textarea {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+    resize: vertical;
+  }
+  .conversacion__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .conversacion__acciones .btn {
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+  }
+  .conversacion__acciones .btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+  .conversacion__estado {
+    color: var(--muted);
+  }
+</style>

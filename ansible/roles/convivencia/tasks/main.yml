@@ -1,0 +1,37 @@
+---
+# Comprueba que la otra web ya escucha solo en localhost, para que
+# el nginx del host pueda atender 80/443 y repartir por dominio.
+#
+# Este rol NO modifica la otra web: su configuración es de su propio proyecto,
+# que la reescribe en cada despliegue.
+# El cambio de puertos se hace allí: su contenedor debe publicar solo en
+# otra_web_http_bind (HTTP), nunca en 0.0.0.0:80/443.
+
+- name: Puertos publicados por el contenedor nginx de la otra web
+  ansible.builtin.command: docker port {{ otra_web_nginx_container }} 80/tcp
+  register: otra_web_port80
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Exigir que la otra web ya no ocupe el puerto 80 público
+  ansible.builtin.assert:
+    that:
+      - otra_web_port80.rc == 0
+      - otra_web_port80.stdout_lines | length > 0
+      - otra_web_port80.stdout_lines | reject('match', '^127\.0\.0\.1:') | list | length == 0
+    fail_msg: >-
+      la otra web publica el puerto 80 en {{ otra_web_port80.stdout_lines | default([]) | join(', ') }}.
+      Cambia sus puertos desde su propio proyecto (ver roles/convivencia/tasks/main.yml)
+      antes de arrancar el nginx del host.
+    quiet: true
+
+- name: Esperar a que la otra web responda en localhost
+  ansible.builtin.uri:
+    url: "http://{{ otra_web_http_bind }}{{ otra_web_health_path }}"
+    status_code: 200
+  register: otra_web_health
+  until: otra_web_health.status == 200
+  retries: 20
+  delay: 3
+  when: not ansible_check_mode

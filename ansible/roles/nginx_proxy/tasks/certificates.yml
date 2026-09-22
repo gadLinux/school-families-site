@@ -1,0 +1,49 @@
+---
+# Un certificado por dominio (webroot): familiasdiegovelazquez.es (+ www) y,
+# solo si se activa otra_web_https, su dominio (hoy solo usa HTTP).
+# El hook de renovación recarga nginx una sola vez, cubriendo ambos.
+
+- name: Certificados a gestionar
+  ansible.builtin.set_fact:
+    nginx_proxy_certificates: >-
+      {{ [{ "cert_name": site_domain,
+            "domains": [site_domain] + site_aliases }]
+         + ((otra_web_enabled and otra_web_https) | ternary(
+             [{ "cert_name": otra_web_domain, "domains": [otra_web_domain] }], [])) }}
+
+- name: Solicitar certificados Let's Encrypt (webroot)
+  ansible.builtin.command: >-
+    certbot certonly --webroot -w {{ certbot_webroot }}
+    --cert-name {{ item.cert_name }}
+    -d {{ item.domains | join(' -d ') }}
+    --email {{ admin_email }} --agree-tos --non-interactive --no-eff-email
+  args:
+    creates: "{{ letsencrypt_dir }}/live/{{ item.cert_name }}/fullchain.pem"
+  loop: "{{ nginx_proxy_certificates }}"
+  loop_control:
+    label: "{{ item.cert_name }}"
+  register: certbot_issue
+
+- name: Recargar nginx tras cada renovación
+  ansible.builtin.copy:
+    dest: "{{ letsencrypt_dir }}/renewal-hooks/deploy/reload-nginx.sh"
+    content: |
+      #!/bin/sh
+      # Gestionado por Ansible (roles/nginx_proxy/tasks/certificates.yml).
+      systemctl reload nginx
+    mode: "0755"
+
+- name: Activar HTTPS en los virtual hosts (se emitieron certificados nuevos)
+  when: certbot_issue is changed
+  block:
+    - name: Releer estado de los certificados
+      ansible.builtin.stat:
+        path: "{{ letsencrypt_dir }}/live/{{ item }}/fullchain.pem"
+      register: nginx_proxy_new_certs
+      loop: "{{ nginx_proxy_certificates | map(attribute='cert_name') | list }}"
+      loop_control:
+        label: "{{ item }}"
+    - name: Regenerar virtual hosts con HTTPS
+      ansible.builtin.include_tasks: vhosts.yml
+    - name: Aplicar configuración HTTPS
+      ansible.builtin.meta: flush_handlers

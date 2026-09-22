@@ -1,0 +1,368 @@
+---
+/**
+ * Propuestas de las familias para /datos: vías de investigación, datos que
+ * analizar o errores detectados. Se moderan como los comentarios; las
+ * aceptadas se publican con su estado y la respuesta del moderador.
+ * Los enlaces «Proponer algo sobre este dato» ([data-proponer]) rellenan el bloque.
+ */
+const tipos = {
+  investigar: 'Vía de investigación',
+  dato: 'Dato que analizar',
+  error: 'Error en un dato',
+};
+---
+
+<section class="container propuestas" id="propuestas" aria-labelledby="propuestas-h">
+  <h2 id="propuestas-h">💡 ¿Qué más deberíamos investigar?</h2>
+  <p class="propuestas__intro">
+    Propón una pregunta, un dato que falte o un error que hayas visto. Revisamos cada propuesta y
+    publicamos aquí su estado. Si puedes, enlaza la fuente: solo publicamos lo que se puede comprobar.
+  </p>
+
+  <div class="propuestas__rejilla">
+    <form class="propuestas__form">
+      <fieldset>
+        <legend>¿Qué quieres proponer?</legend>
+        {
+          Object.entries(tipos).map(([valor, etiqueta], i) => (
+            <label class="propuestas__tipo">
+              <input type="radio" name="tipo" value={valor} checked={i === 0} required />
+              {etiqueta}
+            </label>
+          ))
+        }
+      </fieldset>
+
+      <label for="propuesta-bloque">¿Sobre qué gráfico?</label>
+      <select id="propuesta-bloque" name="bloque">
+        <option value="">General (ninguno en concreto)</option>
+      </select>
+
+      <label for="propuesta-texto">Tu propuesta</label>
+      <textarea
+        id="propuesta-texto"
+        name="texto"
+        rows="5"
+        minlength="10"
+        maxlength="2000"
+        required
+        placeholder="Por ejemplo: comparar la tasa de repetición en 1.º de Bachillerato con otros institutos de la zona."
+      ></textarea>
+
+      <label for="propuesta-enlace">Enlace a la fuente <span class="opcional">(opcional)</span></label>
+      <input id="propuesta-enlace" name="enlace" type="url" placeholder="https://" />
+
+      <p class="propuestas__aviso">Sin nombres ni datos personales de nadie.</p>
+      <div class="propuestas__acciones">
+        <button class="btn" type="submit">Enviar propuesta</button>
+        <span class="propuestas__estado" role="status"></span>
+      </div>
+    </form>
+
+    <div>
+      <h3 class="propuestas__subtitulo">Propuestas de las familias</h3>
+      <ol class="propuestas__lista" aria-live="polite">
+        <li class="propuestas__vacio">Cargando…</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<template id="plantilla-propuesta">
+  <li class="propuesta">
+    <p class="propuesta__cabecera">
+      <span class="propuesta__estado"></span>
+      <span class="propuesta__tipo"></span>
+      <a class="propuesta__bloque" hidden></a>
+    </p>
+    <p class="propuesta__texto"></p>
+    <p class="propuesta__enlace" hidden><a rel="noopener nofollow ugc">Fuente propuesta</a></p>
+    <p class="propuesta__respuesta" hidden><strong>Respuesta:</strong> <span></span></p>
+    <p class="propuesta__meta"></p>
+  </li>
+</template>
+
+<script>
+  import { asegurarSesion, mensajeError, proponer, propuestas, type Propuesta, type TipoPropuesta } from '../lib/participacion';
+
+  const TIPOS: Record<string, string> = {
+    investigar: 'Vía de investigación',
+    dato: 'Dato que analizar',
+    error: 'Error en un dato',
+  };
+  const ESTADOS: Record<string, string> = {
+    pendiente: 'Pendiente de revisión · solo la ves tú',
+    en_estudio: 'En estudio',
+    incorporada: 'Incorporada',
+    descartada: 'Descartada',
+  };
+
+  const seccion = document.querySelector<HTMLElement>('#propuestas')!;
+  const form = seccion.querySelector<HTMLFormElement>('.propuestas__form')!;
+  const selector = form.querySelector<HTMLSelectElement>('#propuesta-bloque')!;
+  const lista = seccion.querySelector<HTMLOListElement>('.propuestas__lista')!;
+  const estado = seccion.querySelector<HTMLElement>('.propuestas__estado')!;
+  const plantilla = document.querySelector<HTMLTemplateElement>('#plantilla-propuesta')!;
+
+  // Los bloques de la página, para elegir a cuál se refiere la propuesta.
+  const titulos = new Map<string, string>();
+  for (const b of document.querySelectorAll<HTMLElement>('article.bloque[id]')) {
+    const titulo = b.querySelector('h3')?.textContent?.trim() ?? b.id;
+    titulos.set(b.id, titulo);
+    selector.add(new Option(titulo, b.id));
+  }
+
+  for (const enlace of document.querySelectorAll<HTMLAnchorElement>('[data-proponer]')) {
+    enlace.addEventListener('click', () => {
+      selector.value = enlace.dataset.proponer!;
+      // Tras el salto al ancla, el foco va al texto.
+      setTimeout(() => form.querySelector('textarea')!.focus(), 300);
+    });
+  }
+
+  function pintar(items: Propuesta[]) {
+    lista.replaceChildren();
+    if (items.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'propuestas__vacio';
+      li.textContent = 'Todavía no hay propuestas publicadas.';
+      lista.append(li);
+      return;
+    }
+    for (const p of items) {
+      const li = plantilla.content.firstElementChild!.cloneNode(true) as HTMLLIElement;
+      li.dataset.estado = p.estado;
+      // textContent, nunca innerHTML: el texto viene de usuarios.
+      li.querySelector('.propuesta__estado')!.textContent = ESTADOS[p.estado] ?? p.estado;
+      li.querySelector('.propuesta__tipo')!.textContent = TIPOS[p.tipo] ?? p.tipo;
+      if (p.bloque && titulos.has(p.bloque)) {
+        const a = li.querySelector<HTMLAnchorElement>('.propuesta__bloque')!;
+        a.href = `#${p.bloque}`;
+        a.textContent = `→ ${titulos.get(p.bloque)}`;
+        a.hidden = false;
+      }
+      li.querySelector('.propuesta__texto')!.textContent = p.texto;
+      if (p.enlace) {
+        const cont = li.querySelector<HTMLElement>('.propuesta__enlace')!;
+        const a = cont.querySelector('a')!;
+        a.href = p.enlace; // PocketBase ya valida que sea una URL
+        a.textContent = new URL(p.enlace).hostname;
+        cont.hidden = false;
+      }
+      if (p.respuesta) {
+        const r = li.querySelector<HTMLElement>('.propuesta__respuesta')!;
+        r.querySelector('span')!.textContent = p.respuesta;
+        r.hidden = false;
+      }
+      const fecha = new Date(p.created.replace(' ', 'T')).toLocaleDateString('es-ES', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+      li.querySelector('.propuesta__meta')!.textContent = `${p.seudonimo} · ${fecha}`;
+      lista.append(li);
+    }
+  }
+
+  async function cargar() {
+    try {
+      pintar(await propuestas());
+    } catch {
+      lista.innerHTML = '<li class="propuestas__vacio">No se han podido cargar las propuestas.</li>';
+    }
+  }
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!(await asegurarSesion())) return;
+    const datos = new FormData(form);
+    const boton = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
+    boton.disabled = true;
+    estado.textContent = '';
+    try {
+      await proponer({
+        tipo: String(datos.get('tipo')) as TipoPropuesta,
+        bloque: String(datos.get('bloque') ?? ''),
+        texto: String(datos.get('texto')),
+        enlace: String(datos.get('enlace') ?? ''),
+      });
+      form.reset();
+      estado.textContent = 'Gracias. La revisaremos y verás aquí su estado.';
+      await cargar();
+    } catch (err) {
+      estado.textContent = mensajeError(err);
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  document.addEventListener('sesion:cambio', cargar);
+  cargar();
+</script>
+
+<style>
+  .propuestas {
+    margin-top: 3rem;
+    scroll-margin-top: 1rem;
+  }
+  .propuestas h2 {
+    font-size: 1.7rem;
+    margin-bottom: 0.25rem;
+  }
+  .propuestas__intro {
+    max-width: 44rem;
+    color: var(--muted);
+  }
+  .propuestas__rejilla {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    margin-top: 1rem;
+  }
+  @media (min-width: 960px) {
+    .propuestas__rejilla {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: start;
+    }
+  }
+  .propuestas__form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.4rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .propuestas__form fieldset {
+    margin: 0 0 0.5rem;
+    padding: 0;
+    border: none;
+    display: grid;
+    gap: 0.3rem;
+  }
+  .propuestas__form legend,
+  .propuestas__form > label {
+    font-weight: 700;
+  }
+  .propuestas__form legend {
+    margin-bottom: 0.3rem;
+  }
+  .propuestas__tipo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .propuestas__form select,
+  .propuestas__form textarea,
+  .propuestas__form input[type='url'] {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+    background: var(--surface);
+  }
+  .propuestas__form textarea {
+    resize: vertical;
+  }
+  .opcional {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .propuestas__aviso {
+    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .propuestas__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .propuestas__acciones .btn {
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+  }
+  .propuestas__acciones .btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+  .propuestas__estado {
+    color: var(--muted);
+  }
+  .propuestas__subtitulo {
+    margin: 0 0 0.75rem;
+  }
+  .propuestas__lista {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.9rem;
+  }
+  .propuestas__vacio {
+    color: var(--muted);
+    font-style: italic;
+  }
+  .propuesta {
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .propuesta[data-estado='pendiente'] {
+    border-style: dashed;
+  }
+  .propuesta p {
+    margin: 0;
+  }
+  .propuesta__cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.6rem;
+    margin-bottom: 0.4rem !important;
+    font-size: 0.85rem;
+  }
+  .propuesta__estado {
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    font-weight: 700;
+    background: color-mix(in srgb, var(--muted) 14%, transparent);
+  }
+  .propuesta[data-estado='en_estudio'] .propuesta__estado {
+    background: color-mix(in srgb, var(--debate) 18%, transparent);
+    color: var(--debate-text);
+  }
+  .propuesta[data-estado='incorporada'] .propuesta__estado {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
+  }
+  .propuesta__tipo {
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .propuesta__texto {
+    white-space: pre-line;
+  }
+  .propuesta__enlace,
+  .propuesta__respuesta {
+    margin-top: 0.4rem !important;
+    font-size: 0.9rem;
+  }
+  .propuesta__respuesta {
+    padding: 0.4rem 0.6rem;
+    border-left: 3px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
+  .propuesta__meta {
+    margin-top: 0.4rem !important;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+</style>

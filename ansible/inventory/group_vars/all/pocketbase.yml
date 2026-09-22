@@ -1,0 +1,25 @@
+---
+# ── PocketBase (backend de participación) ──────────────────────────────
+# Variables de entorno del servicio. Se escriben en un fichero .env con la
+# plantilla ansible/templates/pb.env.j2 (en el servidor y, con pb-env-local.yml, en
+# ../pb/.env para desarrollo).
+#
+# El único secreto, la contraseña de aplicación de Gmail, va cifrado en
+# vault.yml (vault_pb_smtp_pass). Ver ansible/README.md → «Secretos».
+# Dónde escucha PocketBase (solo localhost). nginx reenvía /api aquí.
+pb_listen: "127.0.0.1:8090"
+
+pb_smtp_host: smtp.gmail.com
+pb_smtp_port: 587
+pb_smtp_user: familias.diego.velazquez@gmail.com
+pb_smtp_pass: "{{ vault_pb_smtp_pass }}"
+# Google muestra la contraseña de aplicación en grupos («abcd efgh ijkl mnop»):
+# los espacios son solo de presentación y se quitan.
+pb_smtp_pass_limpia: "{{ pb_smtp_pass | replace(' ', '') }}"
+pb_sender: familias.diego.velazquez@gmail.com
+pb_avisos: familias.diego.velazquez@gmail.com
+
+pb_app_url: "https://{{ site_domain }}"
+pb_web_url: "https://{{ site_domain }}"
+# El panel (/_/) solo se abre por túnel SSH: ssh -L 8090:127.0.0.1:8090 …
+pb_public_url: http://127.0.0.1:8090

@@ -1,0 +1,74 @@
+---
+# Instala y configura nginx en el host SIN arrancarlo: mientras el contenedor
+# de la otra web ocupe los puertos 80/443, nginx no podría escuchar.
+# El arranque va en tasks/start.yml, después del rol convivencia.
+
+- name: Obtener paquetes instalados
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Instalar nginx y certbot sin arrancar servicios
+  when: "'nginx' not in ansible_facts.packages"
+  block:
+    # policy-rc.d impide que el postinst de Debian arranque nginx (fallaría
+    # al no poder escuchar en :80 y dejaría el paquete a medio configurar).
+    - name: Bloquear arranque automático de servicios en apt
+      ansible.builtin.copy:
+        dest: /usr/sbin/policy-rc.d
+        content: "#!/bin/sh\nexit 101\n"
+        mode: "0755"
+    - name: Instalar paquetes
+      ansible.builtin.apt:
+        name: "{{ nginx_packages }}"
+        state: present
+        update_cache: true
+  always:
+    - name: Restaurar arranque automático de servicios en apt
+      ansible.builtin.file:
+        path: /usr/sbin/policy-rc.d
+        state: absent
+
+- name: Asegurar paquetes (ya instalado nginx)
+  ansible.builtin.apt:
+    name: "{{ nginx_packages }}"
+    state: present
+  when: "'nginx' in ansible_facts.packages"
+
+- name: Quitar el sitio por defecto de Debian
+  ansible.builtin.file:
+    path: "{{ nginx_sites_enabled }}/default"
+    state: absent
+  notify: reload nginx
+
+- name: Crear webroot para los retos ACME
+  ansible.builtin.file:
+    path: "{{ certbot_webroot }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Instalar fragmentos comunes
+  ansible.builtin.template:
+    src: "snippets/{{ item }}.j2"
+    dest: "{{ nginx_snippets_dir }}/{{ item }}"
+    mode: "0644"
+  loop:
+    - acme-challenge.conf
+    - ssl-params.conf
+    - security-headers.conf
+    - proxy-otra-web.conf
+  notify: reload nginx
+
+- name: Comprobar si ya existe el certificado del sitio
+  ansible.builtin.stat:
+    path: "{{ letsencrypt_dir }}/live/{{ site_domain }}/fullchain.pem"
+  register: nginx_proxy_site_cert
+
+- name: Configurar virtual hosts
+  ansible.builtin.include_tasks: vhosts.yml
+
+- name: Validar configuración de nginx
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  when: not ansible_check_mode

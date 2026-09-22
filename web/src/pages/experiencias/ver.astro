@@ -1,0 +1,118 @@
+---
+/**
+ * Experiencia escrita desde la web (PocketBase). La página es estática y
+ * carga el contenido en el navegador: /experiencias/ver?e=<slug>. Así una
+ * experiencia aprobada aparece al momento, sin recompilar la web.
+ */
+import Base from '../../layouts/Base.astro';
+import Comentarios from '../../components/Comentarios.astro';
+---
+
+<Base title="Experiencia" description="Experiencia compartida por una familia del IES Diego Velázquez.">
+  <article class="articulo container" aria-busy="true">
+    <a class="volver" href="/experiencias">← Todas las experiencias</a>
+    <p class="articulo__estado">Cargando…</p>
+    <div class="articulo__contenido" hidden>
+      <p class="articulo__cat"></p>
+      <h1></h1>
+      <p class="articulo__meta"></p>
+      <p class="articulo__aviso" hidden></p>
+      <div class="articulo__cuerpo prosa"></div>
+      <div class="articulo__acciones">
+        <button class="btn-metoo" type="button" aria-pressed="false" data-base="0">
+          <span aria-hidden="true">🤝</span>
+          <span class="btn-metoo__n">0</span>
+          <span>A mí también</span>
+        </button>
+      </div>
+      <Comentarios />
+    </div>
+  </article>
+</Base>
+
+<script>
+  import { categorias, etapas, type CategoriaId, type EtapaId } from '../../data/categorias';
+  import { activarBotonesAMiTambien } from '../../lib/a-mi-tambien';
+  import { renderizar } from '../../lib/markdown';
+  import { experienciaPorSlug, resolverAdjuntos } from '../../lib/participacion';
+
+  const articulo = document.querySelector<HTMLElement>('.articulo')!;
+  const estado = articulo.querySelector<HTMLElement>('.articulo__estado')!;
+  const contenido = articulo.querySelector<HTMLElement>('.articulo__contenido')!;
+  const slug = new URLSearchParams(location.search).get('e') ?? '';
+
+  function fecha(iso: string) {
+    return new Date(iso.replace(' ', 'T')).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  async function cargar() {
+    const e = slug ? await experienciaPorSlug(slug).catch(() => null) : null;
+    articulo.setAttribute('aria-busy', 'false');
+    if (!e) {
+      estado.textContent = 'No encontramos esta experiencia. Puede que aún esté pendiente de revisión.';
+      return;
+    }
+    const cat = categorias[e.categoria as CategoriaId] ?? categorias.otros;
+    document.title = `${e.titulo} · Familias Instituto Diego Velázquez`;
+    // textContent para todo lo que escribe la familia; el cuerpo pasa por DOMPurify.
+    contenido.querySelector('.articulo__cat')!.textContent = `${cat.icono} ${cat.etiqueta} · ${etapas[e.etapa as EtapaId] ?? ''} · ${e.curso}`;
+    contenido.querySelector('h1')!.textContent = e.titulo;
+    contenido.querySelector('.articulo__meta')!.textContent = `${e.seudonimo} · ${fecha(e.publicada || e.created)}`;
+    contenido.querySelector('.articulo__cuerpo')!.innerHTML = renderizar(e.cuerpo, resolverAdjuntos(e));
+    if (e.estado !== 'publicada') {
+      const aviso = contenido.querySelector<HTMLElement>('.articulo__aviso')!;
+      aviso.className = 'articulo__aviso etiqueta-pendiente';
+      aviso.textContent = e.estado === 'pendiente' ? 'Pendiente de revisión · solo la ves tú' : 'No publicada';
+      aviso.hidden = false;
+    }
+    contenido.querySelector<HTMLButtonElement>('.btn-metoo')!.dataset.slug = e.slug;
+    estado.hidden = true;
+    contenido.hidden = false;
+    if (e.estado === 'publicada') await activarBotonesAMiTambien();
+    else contenido.querySelector<HTMLElement>('.articulo__acciones')!.hidden = true;
+  }
+
+  cargar();
+</script>
+
+<style>
+  .articulo {
+    max-width: 42rem;
+    padding-top: 2.5rem;
+    padding-bottom: 3rem;
+  }
+  .articulo [hidden] {
+    display: none;
+  }
+  .volver {
+    font-size: 0.9rem;
+  }
+  .articulo__estado {
+    margin-top: 2rem;
+    color: var(--muted);
+  }
+  .articulo__cat {
+    margin-top: 1.5rem;
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+  .articulo h1 {
+    font-size: clamp(1.8rem, 4.5vw, 2.5rem);
+    margin: 0.3rem 0;
+  }
+  .articulo__meta {
+    color: var(--muted);
+  }
+  .articulo__acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .articulo__acciones .btn-metoo {
+    font-size: 1rem;
+    padding: 0.6rem 1rem;
+  }
+</style>

@@ -1,0 +1,8 @@
+---
+- name: restart pocketbase
+  ansible.builtin.systemd_service:
+    name: pocketbase
+    state: restarted
+    daemon_reload: true
+  # En simulación la unidad aún no existe.
+  ignore_errors: "{{ ansible_check_mode }}"

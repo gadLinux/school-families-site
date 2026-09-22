@@ -1,0 +1,45 @@
+# {{ ansible_managed }}
+# {{ otra_web_domain }} — la otra web.
+# Su contenedor escucha solo en {{ otra_web_http_bind }}; este vhost le reenvía el
+# tráfico de su dominio y conserva su comportamiento: hoy se sirve por HTTP.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ otra_web_domain }};
+{% if otra_web_https | bool %}
+
+    # Solo si se activa otra_web_https: retos ACME para su certificado en el host.
+    include snippets/acme-challenge.conf;
+{% endif %}
+
+    client_max_body_size {{ otra_web_client_max_body_size }};
+    access_log /var/log/nginx/{{ otra_web_domain }}.access.log;
+    error_log  /var/log/nginx/{{ otra_web_domain }}.error.log;
+
+    location / {
+        include snippets/proxy-otra-web.conf;
+    }
+}
+{% if (otra_web_https | bool) and (otra_web_cert_ready | bool) %}
+
+# HTTPS opcional (otra_web_https): TLS en el host y reenvío por HTTP al contenedor.
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name {{ otra_web_domain }};
+
+    ssl_certificate     {{ letsencrypt_dir }}/live/{{ otra_web_domain }}/fullchain.pem;
+    ssl_certificate_key {{ letsencrypt_dir }}/live/{{ otra_web_domain }}/privkey.pem;
+    include snippets/ssl-params.conf;
+
+    client_max_body_size {{ otra_web_client_max_body_size }};
+    access_log /var/log/nginx/{{ otra_web_domain }}.access.log;
+    error_log  /var/log/nginx/{{ otra_web_domain }}.error.log;
+
+    location / {
+        include snippets/proxy-otra-web.conf;
+    }
+}
+{% endif %}
