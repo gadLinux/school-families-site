@@ -21,7 +21,7 @@
     "astro": "^7.3.3",
     "dompurify": "^3.4.15",
     "marked": "^18.0.14",
-    "pocketbase": "^0.26.9"
+    "pocketbase": "^0.28.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
