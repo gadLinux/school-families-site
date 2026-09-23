@@ -10,6 +10,10 @@ export default defineConfig({
     format: 'directory',
   },
   vite: {
+    build: {
+      // Nunca incrustar scripts en el HTML: la CSP solo permite script-src 'self'.
+      assetsInlineLimit: 0,
+    },
     server: {
       // En local, /api va a PocketBase (pb/dev.sh). En el servidor lo hace nginx.
       // Mismo origen en los dos casos: sin CORS y sin cambiar la CSP.

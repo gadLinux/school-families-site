@@ -18,6 +18,9 @@
       ansible.builtin.command: npm run build
       args:
         chdir: "{{ web_src_dir }}"
+      environment:
+        PUBLIC_MATOMO_URL: "{{ matomo_url }}"
+        PUBLIC_MATOMO_SITE_ID: "{{ matomo_site_id }}"
       changed_when: false
     - name: Crear carpeta de artefactos
       ansible.builtin.file:

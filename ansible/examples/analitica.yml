@@ -1,0 +1,6 @@
+---
+# Plantilla de inventory/group_vars/all/analitica.yml (privado, no se sube).
+# Instancia de Matomo para las estadísticas de visitas. Si se deja vacío,
+# la web se publica sin medición y la CSP no cambia.
+matomo_url: "https://matomo.example.org/"
+matomo_site_id: "1"

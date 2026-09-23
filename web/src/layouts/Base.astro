@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import Acceso from '../components/Acceso.astro';
+import Matomo from '../components/Matomo.astro';
 import { version } from '../lib/version';
 
 interface Props {
@@ -66,6 +67,7 @@ const fullTitle = title === 'Inicio' ? SITIO : `${title} · ${SITIO}`;
       </div>
     </footer>
     <Acceso />
+    <Matomo />
   </body>
 </html>
 

@@ -1,3 +1,8 @@
 ---
 web_artifact_dir: "{{ playbook_dir }}/../.artifacts"
 web_artifact: "{{ web_artifact_dir }}/web.tar.gz"
+
+# Matomo (opcional). Los valores reales van en el fichero privado
+# inventory/group_vars/all/analitica.yml (plantilla: ansible/examples/analitica.yml).
+matomo_url: ""
+matomo_site_id: ""

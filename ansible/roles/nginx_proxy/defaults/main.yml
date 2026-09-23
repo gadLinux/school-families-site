@@ -21,3 +21,6 @@ otra_web_http_bind: "127.0.0.1:8081"    # donde escucha su contenedor (solo loca
 otra_web_https: false                   # true = el host le emite certificado y le da HTTPS
 otra_web_client_max_body_size: 32m
 otra_web_proxy_read_timeout: 600s
+
+# Matomo (opcional): su origen se añade a la CSP. Valor real en analitica.yml.
+matomo_url: ""

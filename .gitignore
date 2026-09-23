@@ -32,3 +32,4 @@ pb_data/
 ansible/inventory/production.yml
 ansible/inventory/group_vars/all/otra_web.yml
 ansible/inventory/group_vars/all/vault.yml
+ansible/inventory/group_vars/all/analitica.yml
