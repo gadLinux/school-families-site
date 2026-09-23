@@ -44,6 +44,16 @@ ansible-playbook playbooks/site.yml --vault-password-file .vault_pass
 ansible-playbook playbooks/deploy-web.yml --vault-password-file .vault_pass
 ```
 
+**Data is never overwritten by a deploy.** `deploy-web.yml` only uploads a
+new static release (the previous ones are kept for rollback) and does not touch
+PocketBase. `site.yml` copies migrations and hooks next to `pb_data`, never
+into it, and first takes a backup of the database and uploaded files in
+`/var/backups/<site>/antes-de-desplegar-<timestamp>`. New migrations are
+applied when PocketBase restarts.
+
+The site footer shows the deployed version: the short commit hash (linked to
+GitHub), a `+` if the build had uncommitted changes, and the build date.
+
 `site.yml` runs in two phases so that a site already holding 80/443 is down
 for as short a time as possible:
 

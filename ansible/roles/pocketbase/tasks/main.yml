@@ -40,6 +40,32 @@
   failed_when: false
   check_mode: false
 
+# Antes de cambiar binario, migraciones o hooks: copia de los datos actuales.
+# pb_data nunca se sobrescribe desde aquí; las migraciones se aplican al
+# reiniciar y, si algo sale mal, se puede volver a esta copia.
+- name: ¿Existe ya la base de datos?
+  ansible.builtin.stat:
+    path: "{{ pb_root }}/pb_data/data.db"
+  register: pb_db
+
+- name: Copia de seguridad previa al despliegue
+  ansible.builtin.shell: |
+    set -eu
+    d={{ pb_backup_dir }}/antes-de-desplegar-$(date +%Y%m%d%H%M%S)
+    mkdir -p "$d"
+    sqlite3 {{ pb_root }}/pb_data/data.db ".backup $d/data.db"
+    sqlite3 {{ pb_root }}/pb_data/auxiliary.db ".backup $d/auxiliary.db"
+    if [ -d {{ pb_root }}/pb_data/storage ]; then cp -a {{ pb_root }}/pb_data/storage "$d/"; fi
+    echo "$d"
+  register: pb_copia_previa
+  changed_when: false
+  when: pb_db.stat.exists and not ansible_check_mode
+
+- name: Dónde ha quedado la copia
+  ansible.builtin.debug:
+    msg: "{{ pb_copia_previa.stdout }}"
+  when: pb_copia_previa.stdout is defined
+
 - name: Instalar PocketBase {{ pb_version }}
   when: pb_version not in (pb_installed.stdout | default(''))
   block:

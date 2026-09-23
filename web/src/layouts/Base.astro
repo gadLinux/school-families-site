@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import Acceso from '../components/Acceso.astro';
+import { version } from '../lib/version';
 
 interface Props {
   title: string;
@@ -57,6 +58,11 @@ const fullTitle = title === 'Inicio' ? SITIO : `${title} · ${SITIO}`;
           Iniciativa independiente de familias. Sin vínculo con el IES Diego Velázquez ni con su AMPA.
         </p>
         <p>Contacto: <a href="mailto:familias.diego.velazquez@gmail.com">familias.diego.velazquez@gmail.com</a></p>
+        <p class="version">
+          Versión{' '}
+          {version.enlace ? <a href={version.enlace}>{version.commit}</a> : version.commit}
+          {version.conCambios && '+'} · {version.fecha}
+        </p>
       </div>
     </footer>
     <Acceso />
@@ -166,5 +172,14 @@ const fullTitle = title === 'Inicio' ? SITIO : `${title} · ${SITIO}`;
     border-top: 1px solid var(--border);
     color: var(--muted);
     font-size: 0.9rem;
+  }
+  .version {
+    text-align: right;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .version a {
+    color: inherit;
+    font-family: ui-monospace, monospace;
   }
 </style>

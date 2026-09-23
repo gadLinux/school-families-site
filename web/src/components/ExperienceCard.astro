@@ -81,11 +81,11 @@ const fecha = new Date(e.publicada).toLocaleDateString('es-ES', { day: 'numeric'
       <span class="btn-metoo__n">{e.aMiTambien}</span>
       <span class="btn-metoo__label">A mí también</span>
     </button>
-    <div class="vote" role="group" aria-label="¿Estás de acuerdo?">
-      <button class="vote__btn" type="button" data-dir="up" aria-pressed="false" aria-label={`De acuerdo (${e.votosArriba})`}>
+    <div class="vote" role="group" aria-label="¿Hay que visibilizarlo?">
+      <button class="vote__btn" type="button" data-dir="up" aria-pressed="false" title="Hay que visibilizarlo" aria-label={`Hay que visibilizarlo (${e.votosArriba})`}>
         ▲ <span>{e.votosArriba}</span>
       </button>
-      <button class="vote__btn" type="button" data-dir="down" aria-pressed="false" aria-label={`En desacuerdo (${e.votosAbajo})`}>
+      <button class="vote__btn" type="button" data-dir="down" aria-pressed="false" title="No es importante" aria-label={`No es importante (${e.votosAbajo})`}>
         ▼ <span>{e.votosAbajo}</span>
       </button>
     </div>
