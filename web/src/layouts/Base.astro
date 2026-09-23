@@ -7,10 +7,13 @@ import { version } from '../lib/version';
 interface Props {
   title: string;
   description?: string;
+  /** La página registra su visita en Matomo por su cuenta (título dinámico). */
+  visitaManual?: boolean;
 }
 
 const {
   title,
+  visitaManual = false,
   description = 'Un espacio independiente para las familias del IES Diego Velázquez: compartir experiencias, entender los datos y mejorar juntos.',
 } = Astro.props;
 const path = Astro.url.pathname;
@@ -29,7 +32,7 @@ const fullTitle = title === 'Inicio' ? SITIO : `${title} · ${SITIO}`;
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
   </head>
-  <body>
+  <body data-visita-manual={visitaManual ? '' : undefined}>
     <header class="site-header">
       <div class="container site-header__inner">
         <a class="brand" href="/">

@@ -8,7 +8,7 @@ import Base from '../../layouts/Base.astro';
 import Comentarios from '../../components/Comentarios.astro';
 ---
 
-<Base title="Experiencia" description="Experiencia compartida por una familia del IES Diego Velázquez.">
+<Base title="Experiencia" visitaManual description="Experiencia compartida por una familia del IES Diego Velázquez.">
   <article class="articulo container" aria-busy="true">
     <a class="volver" href="/experiencias">← Todas las experiencias</a>
     <p class="articulo__estado">Cargando…</p>
@@ -33,6 +33,7 @@ import Comentarios from '../../components/Comentarios.astro';
 <script>
   import { categorias, etapas, type CategoriaId, type EtapaId } from '../../data/categorias';
   import { activarBotonesAMiTambien } from '../../lib/a-mi-tambien';
+  import { registrarVisita } from '../../lib/estadisticas';
   import { renderizar } from '../../lib/markdown';
   import { experienciaPorSlug, resolverAdjuntos } from '../../lib/participacion';
 
@@ -50,8 +51,14 @@ import Comentarios from '../../components/Comentarios.astro';
     articulo.setAttribute('aria-busy', 'false');
     if (!e) {
       estado.textContent = 'No encontramos esta experiencia. Puede que aún esté pendiente de revisión.';
+      registrarVisita('Experiencia no encontrada', '/experiencias/ver');
       return;
     }
+    // Solo las publicadas llevan su título a Matomo. Una pendiente solo la ven
+    // su autora y la moderación: ni su título ni su enlace (el slug sale del
+    // título) deben salir del sitio.
+    if (e.estado === 'publicada') registrarVisita(`Experiencia: ${e.titulo}`);
+    else registrarVisita('Experiencia sin publicar', '/experiencias/ver');
     const cat = categorias[e.categoria as CategoriaId] ?? categorias.otros;
     document.title = `${e.titulo} · Familias Instituto Diego Velázquez`;
     // textContent para todo lo que escribe la familia; el cuerpo pasa por DOMPurify.

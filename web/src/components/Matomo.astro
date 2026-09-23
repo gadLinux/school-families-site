@@ -1,27 +1,12 @@
 ---
-// Estadísticas de visitas con Matomo, sin cookies.
-// Solo se activa si la compilación recibe PUBLIC_MATOMO_URL y
-// PUBLIC_MATOMO_SITE_ID (Ansible los pasa desde un fichero privado); en
-// desarrollo no se mide nada. Va como script externo por la CSP (script-src 'self').
+// Estadísticas de visitas (ver lib/estadisticas.ts). Va como script externo
+// por la CSP (script-src 'self').
 ---
 
 <script>
-  const url = import.meta.env.PUBLIC_MATOMO_URL;
-  const sitio = import.meta.env.PUBLIC_MATOMO_SITE_ID;
+  import { iniciarEstadisticas } from '../lib/estadisticas';
 
-  if (url && sitio) {
-    const base = url.endsWith('/') ? url : `${url}/`;
-    const w = window as unknown as { _paq: unknown[][] };
-    const _paq = (w._paq = w._paq || []);
-    // Sin cookies: no hace falta pedir consentimiento (LSSI art. 22.2).
-    _paq.push(['disableCookies']);
-    _paq.push(['trackPageView']);
-    _paq.push(['enableLinkTracking']);
-    _paq.push(['setTrackerUrl', `${base}matomo.php`]);
-    _paq.push(['setSiteId', sitio]);
-    const g = document.createElement('script');
-    g.async = true;
-    g.src = `${base}matomo.js`;
-    document.head.append(g);
-  }
+  // Las páginas con data-visita-manual (p. ej. una experiencia, cuyo título
+  // llega del servidor) llaman a registrarVisita() cuando lo tienen.
+  iniciarEstadisticas(!('visitaManual' in document.body.dataset));
 </script>
