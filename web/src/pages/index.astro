@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import Cambios from '../components/Cambios.astro';
 import { categorias, etapas } from '../data/categorias';
 import { experiencias } from '../data/experiencias';
 import { clasificar } from '../lib/ranking';
@@ -110,6 +111,8 @@ const pasos = [
       </section>
     )
   }
+
+  <Cambios />
 
   <section class="container">
     <h2>Cómo funciona</h2>

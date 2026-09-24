@@ -1,0 +1,32 @@
+{
+  "archivo": "f008_no_promocion_agregado_2025-26.csv",
+  "titulo": "Promoción en 2.º ESO 2025-26: alumnos, promocionan y con 1-2 pendientes",
+  "fuentes": [
+    {
+      "id": "F008",
+      "documento": "Recopilación estadística de 2.º ESO, curso 2025-2026 (IES Diego Velázquez, entregada a la familia el 17/07/2026)",
+      "url": null,
+      "fecha_obtencion": "2026-07-24",
+      "carpeta_local": "data/2026-07-24_F008_estadistica_interna_2eso_ies/",
+      "paginas": "27"
+    }
+  ],
+  "metodo": "Transcripción manual",
+  "fecha_extraccion": "2026-09-10",
+  "estado": "publicable",
+  "notas": [],
+  "validacion": {
+    "validado": true,
+    "veces": 1,
+    "ultima": "2026-09-24",
+    "historial": [
+      {
+        "fecha": "2026-09-24",
+        "alcance": "completa",
+        "resultado": "ok",
+        "por": "Claude",
+        "nota": "F008 p.27: 142 / 125 / 22 / 88 %"
+      }
+    ]
+  }
+}

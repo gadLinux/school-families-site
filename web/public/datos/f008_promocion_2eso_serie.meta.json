@@ -1,0 +1,34 @@
+{
+  "archivo": "f008_promocion_2eso_serie.csv",
+  "titulo": "% de promoción en 1.º y 2.º ESO, 2012-13 a 2025-26",
+  "fuentes": [
+    {
+      "id": "F008",
+      "documento": "Recopilación estadística de 2.º ESO, curso 2025-2026 (IES Diego Velázquez, entregada a la familia el 17/07/2026)",
+      "url": null,
+      "fecha_obtencion": "2026-07-24",
+      "carpeta_local": "data/2026-07-24_F008_estadistica_interna_2eso_ies/",
+      "paginas": "27"
+    }
+  ],
+  "metodo": "Transcripción manual de la tabla del gráfico",
+  "fecha_extraccion": "2026-09-10",
+  "estado": "publicable",
+  "notas": [
+    "Desde 2015-16 incluye evaluación ordinaria y extraordinaria; antes no."
+  ],
+  "validacion": {
+    "validado": true,
+    "veces": 1,
+    "ultima": "2026-09-24",
+    "historial": [
+      {
+        "fecha": "2026-09-24",
+        "alcance": "completa",
+        "resultado": "ok",
+        "por": "Claude",
+        "nota": "Las 14 filas contra la tabla de F008 p.27"
+      }
+    ]
+  }
+}

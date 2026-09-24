@@ -10,6 +10,8 @@ export interface Tramo {
   color: string;
   /** Tramo calculado como mínimo: rayado, y su valor con «≥». */
   minimo?: boolean;
+  /** Tramo calculado como máximo: rayado, y su valor con «≤». */
+  maximo?: boolean;
 }
 
 interface Props {
@@ -38,7 +40,7 @@ const cabe = 44;
   <defs>
     {
       tramos.map((t, i) =>
-        t.minimo ? (
+        t.minimo || t.maximo ? (
           <pattern id={`${id}-rayas-${i}`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="8" height="8" fill={t.color} opacity="0.3" />
             <line x1="0" y1="0" x2="0" y2="8" stroke={t.color} stroke-width="4" />
@@ -68,19 +70,19 @@ const cabe = 44;
                   y={y + 8}
                   width={Math.max(0, w - 2)}
                   height={altoFila - 24}
-                  fill={t.minimo ? `url(#${id}-rayas-${i})` : t.color}
-                  stroke={t.minimo ? t.color : 'none'}
-                  stroke-dasharray={t.minimo ? '5 3' : undefined}
+                  fill={t.minimo || t.maximo ? `url(#${id}-rayas-${i})` : t.color}
+                  stroke={t.minimo || t.maximo ? t.color : 'none'}
+                  stroke-dasharray={t.minimo || t.maximo ? '5 3' : undefined}
                   stroke-width="1.5"
                 />
                 {w >= cabe && (
                   <text
-                    class:list={['grafico__valor', { 'grafico__valor--claro': !t.minimo }]}
+                    class:list={['grafico__valor', { 'grafico__valor--claro': !t.minimo && !t.maximo }]}
                     x={x0 + w / 2}
                     y={y + altoFila / 2 + 2}
                     text-anchor="middle"
                   >
-                    {t.minimo ? '≥' : ''}
+                    {t.minimo ? '≥' : t.maximo ? '≤' : ''}
                     {v}
                   </text>
                 )}

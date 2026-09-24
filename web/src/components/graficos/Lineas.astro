@@ -11,6 +11,8 @@ export interface SerieLineas {
   valores: (number | null)[];
   /** Trazo discontinuo, para distinguir una serie sin depender del color. */
   discontinua?: boolean;
+  /** false: sin etiqueta de valor (p. ej., un tramo que acaba a mitad del eje). */
+  etiquetar?: boolean;
 }
 
 interface Props {
@@ -57,6 +59,7 @@ function trazo(valores: (number | null)[]): string {
 
 /** Primera serie: etiquetas encima; segunda: debajo, para que no se pisen. */
 function etiquetas(s: SerieLineas, orden: number) {
+  if (s.etiquetar === false) return [];
   const indices = s.valores.map((v, i) => (v === null ? -1 : i)).filter((i) => i >= 0);
   const mostrar = new Set([indices[indices.length - 1], ...destacar]);
   return [...mostrar]

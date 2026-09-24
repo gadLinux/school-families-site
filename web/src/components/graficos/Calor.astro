@@ -1,0 +1,112 @@
+---
+/**
+ * Mapa de calor en SVG: filas × columnas, cada celda con su valor escrito.
+ * Escala secuencial de un solo tono (del fondo al color de acento), así que
+ * más oscuro = más alto. El valor va siempre dentro de la celda: el color
+ * nunca es la única forma de leerlo.
+ */
+interface Props {
+  id: string;
+  titulo: string;
+  filas: string[];
+  columnas: string[];
+  /** valores[fila][columna]; null = sin dato */
+  valores: (number | null)[][];
+  max: number;
+  formato?: (v: number) => string;
+}
+
+const { id, titulo, filas, columnas, valores, max, formato = (v: number) => String(v) } = Astro.props;
+
+const ancho = 640;
+const margen = { arriba: 44, izq: 64, der: 4 };
+const anchoCelda = (ancho - margen.izq - margen.der) / columnas.length;
+const altoCelda = 40;
+const alto = margen.arriba + filas.length * altoCelda + 4;
+/** 0 → 8 % de acento; max → 100 %. Por encima de 55 % el texto pasa a blanco. */
+const intensidad = (v: number) => 8 + 92 * Math.min(1, v / max);
+---
+
+<svg class="grafico" viewBox={`0 0 ${ancho} ${alto}`} role="img" aria-labelledby={`${id}-t`}>
+  <title id={`${id}-t`}>{titulo}</title>
+  {
+    columnas.map((c, j) => (
+      <text class="grafico__col" x={margen.izq + j * anchoCelda + anchoCelda / 2} y={margen.arriba - 12} text-anchor="middle">
+        {c}
+      </text>
+    ))
+  }
+  {
+    filas.map((f, i) => (
+      <g>
+        <text class="grafico__fila" x={margen.izq - 10} y={margen.arriba + i * altoCelda + altoCelda / 2 + 5} text-anchor="end">
+          {f}
+        </text>
+        {columnas.map((_, j) => {
+          const v = valores[i][j];
+          const x = margen.izq + j * anchoCelda;
+          const y = margen.arriba + i * altoCelda;
+          const k = v === null ? 0 : intensidad(v);
+          return (
+            <g>
+              <rect
+                x={x + 1}
+                y={y + 1}
+                width={anchoCelda - 2}
+                height={altoCelda - 2}
+                rx="4"
+                fill={v === null ? 'var(--surface)' : `color-mix(in srgb, var(--accent) ${k.toFixed(0)}%, var(--surface))`}
+                stroke={v === null ? 'var(--border)' : 'none'}
+                stroke-dasharray={v === null ? '4 3' : undefined}
+              />
+              <text
+                class:list={['grafico__valor', { 'grafico__valor--claro': k > 55 }]}
+                x={x + anchoCelda / 2}
+                y={y + altoCelda / 2 + 5}
+                text-anchor="middle"
+              >
+                {v === null ? '—' : formato(v)}
+              </text>
+            </g>
+          );
+        })}
+      </g>
+    ))
+  }
+</svg>
+
+<style>
+  .grafico {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-body);
+  }
+  .grafico__col {
+    font-size: 13px;
+    font-weight: 700;
+    fill: var(--muted);
+  }
+  .grafico__fila {
+    font-size: 15px;
+    font-weight: 700;
+    fill: var(--text);
+  }
+  .grafico__valor {
+    font-size: 15px;
+    font-weight: 700;
+    fill: var(--text);
+  }
+  .grafico__valor--claro {
+    fill: #fff;
+  }
+  @media (max-width: 599px) {
+    .grafico__col {
+      font-size: 17px;
+    }
+    .grafico__fila,
+    .grafico__valor {
+      font-size: 20px;
+    }
+  }
+</style>

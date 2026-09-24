@@ -33,3 +33,29 @@ export function pct(valor: number, decimales = 1): string {
 export function dec(valor: number, decimales = 1): string {
   return valor.toLocaleString('es-ES', { maximumFractionDigits: decimales });
 }
+
+/** Procedencia de un CSV: su `<nombre>.meta.json`, publicado junto a él. */
+export interface MetaCsv {
+  archivo: string;
+  titulo: string;
+  fuentes: { id: string; documento: string; paginas?: string; url: string | null; fecha_obtencion: string }[];
+  metodo: string;
+  estado: string;
+  validacion: {
+    /** true solo si la última validación fue completa y sin discrepancias. */
+    validado: boolean;
+    veces: number;
+    ultima: string | null;
+    historial: { fecha: string; alcance: 'completa' | 'parcial'; resultado: 'ok' | 'discrepancia'; nota: string }[];
+  };
+}
+
+const metas = import.meta.glob<MetaCsv>('/public/datos/*.meta.json', { import: 'default', eager: true });
+
+/** Meta de un CSV publicado. Sin meta no se compila: todo dato lleva su fuente. */
+export function leerMeta(csv: string): MetaCsv {
+  const ruta = `/public/datos/${csv.replace(/\.csv$/, '.meta.json')}`;
+  const meta = metas[ruta];
+  if (meta === undefined) throw new Error(`Falta ${ruta}: cada CSV necesita su ficha de procedencia`);
+  return meta;
+}

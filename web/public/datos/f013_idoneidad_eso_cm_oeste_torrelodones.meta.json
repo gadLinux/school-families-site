@@ -1,0 +1,34 @@
+{
+  "archivo": "f013_idoneidad_eso_cm_oeste_torrelodones.csv",
+  "titulo": "Tasas de idoneidad 12-15 años: CM, DAT Oeste y municipio de Torrelodones, 2014-15 a 2023-24",
+  "fuentes": [
+    {
+      "id": "F013",
+      "documento": "Estadística de la Enseñanza CM: tasas de idoneidad por edad",
+      "url": "https://gestiona.comunidad.madrid/este_web/Report/ReportTemplate?ReportName=27_TasasIdoneidad_EducObligatoriaEdadSexo",
+      "fecha_obtencion": "2026-09-24",
+      "carpeta_local": "data/2026-09-24_F013_estadistica_ensenanza_cm_idoneidad/"
+    }
+  ],
+  "metodo": "Lectura automatizada del informe (Playwright), un curso y ámbito cada vez, con comprobación de que la cabecera del informe coincide con el curso pedido",
+  "fecha_extraccion": "2026-09-24",
+  "estado": "publicable",
+  "notas": [
+    "Torrelodones = todos los centros del municipio.",
+    "Datos provisionales según el portal."
+  ],
+  "validacion": {
+    "validado": false,
+    "veces": 1,
+    "ultima": "2026-09-24",
+    "historial": [
+      {
+        "fecha": "2026-09-24",
+        "alcance": "parcial",
+        "resultado": "ok",
+        "por": "Claude",
+        "nota": "Solo 2023-24 (3 ámbitos) contra las capturas del informe; 2014-15 a 2022-23 sin cotejar"
+      }
+    ]
+  }
+}

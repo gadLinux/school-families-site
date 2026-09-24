@@ -4,12 +4,16 @@ import BloqueDato from '../components/graficos/BloqueDato.astro';
 import Barras from '../components/graficos/Barras.astro';
 import Lineas from '../components/graficos/Lineas.astro';
 import Apiladas from '../components/graficos/Apiladas.astro';
+import Calor from '../components/graficos/Calor.astro';
 import Propuestas from '../components/Propuestas.astro';
 import { dec, leerCsv, num, pct } from '../lib/csv';
 
 const CENTRO = 'var(--accent)';
 const CM = 'var(--compare)';
 const GRIS = '#9aa1a8';
+const GRIS_CLARO = '#d3d7db';
+/** Tercera serie de contexto (DAT): gris oscuro y discontinua, para no confundirse con --compare. */
+const GRIS_OSCURO = '#5b6670';
 const CENTRO_CLARO = '#8cc2b5';
 
 /** «2013-14» → «13-14», para que quepan todos los cursos en el eje. */
@@ -39,6 +43,8 @@ const acceso = brecha.map((r) => {
 // 2 · Serie de aptos PAU, centro frente a la Comunidad de Madrid
 const serie = leerCsv('serie_historica_aptos.csv');
 const difs = serie.map((r) => Number(r.brecha_pp));
+/** Último curso con media regional tomada del centro (F002); desde el siguiente, la oficial (F009). */
+const ultimoCmCentro = serie.findLastIndex((r) => !r.fuente_cm.startsWith('F009'));
 
 // 2b · Nota media PAU y titulación en ESO: buscador de centros de la CM (F011)
 const resultadosCm = leerCsv('f011_resultados_centro_vs_cm.csv');
@@ -62,6 +68,71 @@ const valor = (tabla: Record<string, string>[], grupo: string, evaluacion: strin
   num(tabla.find((r) => r.grupo === grupo && r.evaluacion === evaluacion)?.[campo] ?? '');
 const negFinal = grupos.map((g) => valor(negativa, g, 'final', 'pct_evaluados_negativamente') as number);
 const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
+
+// 1b · % de aptos: el que publica el centro y el que da la CM para el centro (F012)
+const aptosOficial = leerCsv('f012_pau_centro_oficial_vs_publicado.csv');
+const difAptos = aptosOficial.map((r) => Number(r.dif_publicado_menos_oficial_pp));
+
+// 1c · Titulación en Bachillerato. Oficial (F012, todas las convocatorias) hasta
+// 2023-24; después solo existe la de la convocatoria ordinaria que publica el
+// centro (F002/F003). Son indicadores distintos: series separadas.
+const titBach = leerCsv('f012_titulacion_bachillerato.csv');
+const cursosTitBach = [...titBach.map((r) => r.curso_academico), ...brecha.map((r) => r.curso_academico)];
+const titBachUlt = titBach[titBach.length - 1];
+
+// 1d · Nota de Bachillerato frente a nota de la PAU, según el centro (F002 p. 5 y F003)
+const expediente = leerCsv('f002_notas_expediente_pau.csv');
+const conExpediente = expediente.filter((r) => r.media_expediente_bach !== '');
+const difExp = conExpediente.map((r) => Number(r.media_expediente_bach) - Number(r.media_pau_fase_general));
+const cursosExpMayor = difExp.filter((d) => d > 0).length;
+
+// 1e · Reparto de Bachillerato entre 1.º y 2.º: con la matrícula de la etapa (F011)
+// y el mínimo de 2.º del bloque 1, 1.º tiene como mucho el resto.
+const matricula = leerCsv('f011_matricula_por_etapa.csv');
+const piramide = brecha.map((r, i) => {
+  const total = Number(matricula.find((m) => m.curso_academico === r.curso_academico)?.bachillerato);
+  return { curso: r.curso_academico, total, segundoMin: acceso[i].alumnosMin, primeroMax: total - acceso[i].alumnosMin };
+});
+const pirUlt = piramide[piramide.length - 1];
+
+// 1f · Solicitudes de plaza (F012)
+const admision = leerCsv('f012_admision_solicitudes.csv');
+const admBach = admision.filter((r) => r.etapa === 'Bachillerato');
+const admEso = admision.filter((r) => r.etapa === 'ESO');
+
+// 4b · Qué pasa con el alumnado de 2.º ESO en 2025-26 (F008 p. 27)
+const agregado = leerCsv('f008_no_promocion_agregado_2025-26.csv')[0];
+const promo2 = {
+  total: Number(agregado.total_alumnos),
+  sinPendientes: Number(agregado.promocionan) - Number(agregado.con_1_2_pendientes),
+  conPendientes: Number(agregado.con_1_2_pendientes),
+  noPromocionan: Number(agregado.total_alumnos) - Number(agregado.promocionan),
+};
+
+// 4c · Idoneidad (repetición acumulada), 2023-24 (F013)
+const idoneidad = leerCsv('f013_idoneidad_eso_cm_oeste_torrelodones.csv');
+const edades = ['12', '13', '14', '15'];
+const idoUlt = idoneidad.filter((r) => r.curso_academico === '2023-24');
+const idoDe = (ambito: string) => idoUlt.find((r) => r.ambito === ambito)!;
+const ambitosIdo = [
+  { ambito: 'Torrelodones (municipio)', nombre: 'Torrelodones (todos los centros)', color: CENTRO },
+  { ambito: 'DAT Madrid-Oeste', nombre: 'DAT Madrid-Oeste', color: GRIS_OSCURO, discontinua: true },
+  { ambito: 'Comunidad de Madrid', nombre: 'Comunidad de Madrid', color: CM },
+];
+
+// 5b · Suspensos por materia y grupo en la evaluación final (F008 pp. 21-26)
+const materias = leerCsv('f008_final_materias_y_composicion_2eso.csv');
+const columnasMaterias = [
+  { campo: 'in_lengua', nombre: 'Lengua' },
+  { campo: 'in_matematicas', nombre: 'Matemát.' },
+  { campo: 'in_geografia_historia', nombre: 'Geo. e Hist.' },
+  { campo: 'in_ingles', nombre: 'Inglés' },
+  { campo: 'in_fisica_quimica', nombre: 'Fís. y Quím.' },
+  { campo: 'in_tecnologia', nombre: 'Tecnología' },
+];
+const pctMateria = (r: Record<string, string>, campo: string) => (100 * Number(r[campo])) / Number(r.total_alumnos);
+const alumnosActas = materias.reduce((a, r) => a + Number(r.total_alumnos), 0);
+const conSuspensaFinal = materias.reduce((a, r) => a + Number(r.evaluados_negativamente), 0);
 ---
 
 <Base
@@ -85,13 +156,14 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
         más detenido.
       </li>
       <li>
-        ¿Ves un error o se te ocurre qué más investigar? <a href="#propuestas">Propónlo</a> o escríbenos a <a href="mailto:familias.diego.velazquez@gmail.com">familias.diego.velazquez@gmail.com</a> y lo
+        ¿Ves un error o se te ocurre qué más investigar? <a href="#propuestas">Proponlo</a> o escríbenos a <a href="mailto:familias.diego.velazquez@gmail.com">familias.diego.velazquez@gmail.com</a> y lo
         corregimos.
       </li>
     </ul>
     <nav class="indice" aria-label="Secciones">
       <a href="#bachillerato">Bachillerato y PAU</a>
-      <a href="#eso">ESO</a>
+      <a href="#eso">Promoción y repetición en la ESO</a>
+      <a href="#grupos">2.º de ESO, grupo a grupo</a>
       <a href="#pendiente">Datos que faltan</a>
       <a href="#propuestas">Propón qué investigar</a>
     </nav>
@@ -100,18 +172,18 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
   <section class="container seccion" id="bachillerato" aria-labelledby="bachillerato-h">
     <h2 id="bachillerato-h">Bachillerato y PAU</h2>
     <p class="seccion__intro">
-      El centro publica cada año sus resultados en la PAU. Aquí se ponen al lado de otros datos del mismo
-      curso para verlos en contexto.
+      El centro publica cada año sus resultados en la PAU. Aquí se ponen al lado de las cifras oficiales de la
+      Comunidad de Madrid y de otros datos del mismo curso: quién titula, quién se presenta y cuántos alumnos hay.
     </p>
 
     <div class="rejilla">
       <BloqueDato
         id="quien-llega"
-        alerta={`El ${pct(acceso[1].aprobadosPct)} de aprobados que publica el centro deja fuera a los al menos ${acceso[1].noTitulan} alumnos que no titularon en junio. Sobre todo 2.º de Bachillerato, aprobó como mucho el ${pct(acceso[1].aprobadosSobreTotalMax)}.`}
+        alerta={`El ${pct(acceso[1].aprobadosPct)} de aprobados que publica el centro deja fuera al menos a ${acceso[1].noTitulan} alumnos que no titularon en junio. Sobre el total de 2.º de Bachillerato, aprobó como mucho el ${pct(acceso[1].aprobadosSobreTotalMax)}.`}
         titulo="¿Quién llega a la PAU?"
         cifra={`≥ ${acceso[1].noTitulan}`}
         cifraTexto={`alumnos de 2.º de Bachillerato no titularon en junio de 2026 y no podían presentarse a la PAU (≥ ${acceso[0].noTitulan} en 2025)`}
-        descripcion={`Para presentarse a la PAU hay que tener el título de Bachiller. Por eso el ${pct(acceso[1].aprobadosPct)} de aprobados que publica el centro para 2026 se calcula solo sobre quienes titularon en junio y se presentaron. Sobre todo el alumnado de 2.º de Bachillerato, aprobó la PAU como mucho el ${pct(acceso[1].aprobadosSobreTotalMax)} (${pct(acceso[0].aprobadosSobreTotalMax)} en 2025).`}
+        descripcion={`Para presentarse a la PAU hay que tener el título de Bachiller. Por eso el ${pct(acceso[1].aprobadosPct)} de aprobados que publica el centro para 2026 se calcula solo sobre quienes titularon en junio y se presentaron. Sobre el total del alumnado de 2.º de Bachillerato, aprobó la PAU como mucho el ${pct(acceso[1].aprobadosSobreTotalMax)} (${pct(acceso[0].aprobadosSobreTotalMax)} en 2025).`}
         pregunta="¿Qué ocurre con el alumnado que no titula en junio y no puede presentarse a la PAU?"
         leyenda={[
           { nombre: 'No titulan en junio: no pueden presentarse (mínimo)', color: GRIS, estimada: true },
@@ -167,6 +239,60 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
       </BloqueDato>
 
       <BloqueDato
+        id="aptos-oficial"
+        alerta={`En los ${aptosOficial.length} cursos con dato oficial, el porcentaje de aptos que publica el centro es más alto que el que la Comunidad de Madrid da para el mismo centro: entre ${dec(Math.min(...difAptos), 2)} y ${dec(Math.max(...difAptos), 2)} puntos más.`}
+        titulo="Aptos en la PAU: la cifra del centro y la oficial"
+        cifra={`${pct(Number(aptosOficial[aptosOficial.length - 1].pct_aptos_centro_publicado), 2)} / ${pct(Number(aptosOficial[aptosOficial.length - 1].pct_aptos_centro_cm), 2)}`}
+        cifraTexto={`aptos del centro en ${aptosOficial[aptosOficial.length - 1].curso_academico}: el que publica el centro y el que da la Comunidad de Madrid`}
+        descripcion="El buscador de centros de la Comunidad de Madrid da, para cada centro, el número de presentados a la PAU y el porcentaje de aptos. Para los mismos cursos, la cifra que publica el centro siempre es más alta."
+        pregunta="¿Qué convocatorias y qué alumnos cuenta cada una de las dos cifras?"
+        leyenda={[
+          { nombre: 'Según el centro (discontinua)', color: CENTRO_CLARO },
+          { nombre: 'Según la Comunidad de Madrid', color: CENTRO },
+        ]}
+        notas={[
+          'El eje empieza en el 90 %, no en el 0 %, para que se vean las diferencias.',
+          'Una explicación posible, sin confirmar: que el centro cuente solo la convocatoria de junio y la Comunidad de Madrid, también la extraordinaria. Ninguna de las dos fuentes lo aclara.',
+          'El buscador también da una media regional, pero no la usamos: para 2019-20 da un 100 % y para 2020-21 un 66,67 %, cifras incompatibles con las oficiales de la PAU (91,50 % y 94,49 %).',
+        ]}
+        citas={[
+          { fuente: 'F012', dato: 'Presentados y % de aptos del centro según la Comunidad de Madrid' },
+          { fuente: 'F002', pagina: '4', dato: '% de aptos que publica el centro' },
+        ]}
+        csv={['f012_pau_centro_oficial_vs_publicado.csv']}
+      >
+        <Lineas
+          id="g-aptos-oficial"
+          titulo="Porcentaje de aptos del IES Diego Velázquez en la PAU: el que publica el centro y el que da la Comunidad de Madrid, 2019-20 a 2023-24"
+          categorias={aptosOficial.map((r) => corto(r.curso_academico))}
+          series={[
+            { nombre: 'Según el centro', color: CENTRO_CLARO, discontinua: true, valores: aptosOficial.map((r) => Number(r.pct_aptos_centro_publicado)) },
+            { nombre: 'Según la CM', color: CENTRO, valores: aptosOficial.map((r) => Number(r.pct_aptos_centro_cm)) },
+          ]}
+          min={90}
+          max={100}
+          marcas={[90, 92, 94, 96, 98, 100]}
+          formato={(v) => pct(v, 2)}
+        />
+        <table slot="tabla">
+          <thead>
+            <tr><th>Curso</th><th>Presentados (CM)</th><th>Aptos según el centro</th><th>Aptos según la CM</th><th>Diferencia</th></tr>
+          </thead>
+          <tbody>
+            {aptosOficial.map((r) => (
+              <tr>
+                <td>{r.curso_academico}</td>
+                <td>{r.presentados_pau_cm}</td>
+                <td>{pct(Number(r.pct_aptos_centro_publicado), 2)}</td>
+                <td>{pct(Number(r.pct_aptos_centro_cm), 2)}</td>
+                <td>+{dec(Number(r.dif_publicado_menos_oficial_pp), 2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </BloqueDato>
+
+      <BloqueDato
         id="serie-aptos"
         alerta={'Para 2024-25 el centro publica una media regional del 95,5 %, pero la oficial es del 95,16 %. Y para sí mismo da dos cifras distintas: 95,9 % y 95,8 %.'}
         titulo="Aptos en la PAU: el centro y la Comunidad de Madrid"
@@ -176,11 +302,13 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
         pregunta="¿Cómo ha evolucionado el centro respecto a la media regional?"
         leyenda={[
           { nombre: 'IES Diego Velázquez', color: CENTRO },
-          { nombre: 'Comunidad de Madrid', color: CM },
+          { nombre: 'Com. de Madrid, según el centro (hasta 2017-18, discontinua)', color: CM },
+          { nombre: 'Comunidad de Madrid, oficial (desde 2018-19)', color: CM },
         ]}
         notas={[
           'El eje empieza en el 90 %, no en el 0 %, para que se vean las diferencias.',
-          'Media regional: hasta 2017-18, la que publica el centro; desde 2018-19, la oficial de la Comunidad de Madrid (aptos respecto a matriculados en la PAU).',
+          'Media regional: hasta 2017-18, la que publica el centro, que no hemos podido comprobar (línea discontinua); desde 2018-19, la oficial de la Comunidad de Madrid (aptos respecto a matriculados en la PAU). Las dos veces que hemos podido comparar, la media regional que da el centro era más alta que la oficial.',
+          'La Comunidad de Madrid también da, para 2026, un 95,1 % de aptos respecto a presentados. Si el centro calcula sobre presentados, la diferencia comparable en 2025-26 es de 2,0 puntos, no de 2,37.',
           'En 2024-25 el centro publica una media regional del 95,5 %; la Comunidad de Madrid, del 95,16 %. Aquí se usa la oficial.',
           'El centro no indica si su porcentaje se calcula sobre los matriculados o sobre los presentados a la PAU.',
         ]}
@@ -197,7 +325,8 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
           categorias={serie.map((r) => corto(r.curso_academico))}
           series={[
             { nombre: 'IES Diego Velázquez', color: CENTRO, valores: serie.map((r) => Number(r.pct_aptos_diego_velazquez)) },
-            { nombre: 'Comunidad de Madrid', color: CM, valores: serie.map((r) => Number(r.pct_aptos_comunidad_madrid)) },
+            { nombre: 'Com. de Madrid (según el centro)', color: CM, discontinua: true, etiquetar: false, valores: serie.map((r, i) => (i <= ultimoCmCentro ? Number(r.pct_aptos_comunidad_madrid) : null)) },
+            { nombre: 'Comunidad de Madrid (oficial)', color: CM, valores: serie.map((r, i) => (i > ultimoCmCentro ? Number(r.pct_aptos_comunidad_madrid) : null)) },
           ]}
           min={90}
           max={100}
@@ -236,10 +365,12 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
         ]}
         notas={[
           'El eje va de 6 a 8 puntos, no de 0 a 10, para que se vean las diferencias.',
-          'Puede tratarse de métricas distintas, por ejemplo solo la fase general de la convocatoria ordinaria frente a todos los ejercicios o convocatorias. Ninguna de las dos fuentes lo aclara.',
+          'Las dos fuentes dicen medir lo mismo: la Comunidad de Madrid, la «nota media del bloque obligatorio / fase general»; el centro, la «media de la fase general de la convocatoria ordinaria».',
+          'El propio centro indica en su gráfico que hasta 2017-18 la fuente es la Comunidad de Madrid y desde 2018-19, el centro. La diferencia aparece en los cursos que calcula el centro.',
+          'Si la cifra de la Comunidad de Madrid incluyera también la convocatoria extraordinaria, con pocos alumnos, eso no bastaría para explicar diferencias de hasta 0,9 puntos.',
         ]}
         citas={[
-          { fuente: 'F002', pagina: '5', dato: 'Nota que publica el centro («EvAU media fase general conv. ord.»)' },
+          { fuente: 'F002', pagina: '5', dato: 'Nota que publica el centro («EvAU media fase general conv. ord.») y leyenda «Centro desde 2018-19»' },
           { fuente: 'F011', dato: 'Nota del centro y media regional según la Comunidad de Madrid' },
         ]}
         csv={['f011_resultados_centro_vs_cm.csv']}
@@ -276,15 +407,216 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
         </table>
       </BloqueDato>
 
+      <BloqueDato
+        id="titulacion-bach"
+        alerta={`En junio de 2026 tituló en Bachillerato el ${pct(acceso[1].tituladosPct, 2)}, según el centro: la cifra más baja de la serie. No es del todo comparable con las anteriores: la oficial cuenta todas las convocatorias y la del centro, solo la de junio.`}
+        titulo="Alumnos que obtienen el título de Bachillerato"
+        cifra={pct(acceso[1].tituladosPct, 2)}
+        cifraTexto={`titula en la convocatoria de junio de 2026, según el centro (${pct(Number(titBachUlt.titulacion_bach_centro_pct), 2)} en ${titBachUlt.curso_academico} contando todas las convocatorias, según la Comunidad de Madrid)`}
+        descripcion={`Según la Comunidad de Madrid, entre ${titBach[0].curso_academico} y ${titBachUlt.curso_academico} el centro tituló en Bachillerato por encima de la media regional todos los cursos. Para los cursos siguientes solo hay la cifra que publica el centro, de la convocatoria de junio: ${pct(acceso[0].tituladosPct)} en 2024-25 y ${pct(acceso[1].tituladosPct, 2)} en 2025-26.`}
+        pregunta="¿Cuántos alumnos titularon al final en 2025-26, sumando la convocatoria extraordinaria?"
+        leyenda={[
+          { nombre: 'Centro, todas las convocatorias (CM)', color: CENTRO },
+          { nombre: 'Comunidad de Madrid', color: CM },
+          { nombre: 'Centro, solo junio (según el centro, discontinua)', color: CENTRO_CLARO },
+        ]}
+        notas={[
+          'El eje empieza en el 60 %, no en el 0 %, para que se vean las diferencias.',
+          'La serie oficial es la de Bachillerato presencial del buscador de centros. La del centro es la «titulados Bach. conv. ord.» de sus carteles de resultados.',
+        ]}
+        citas={[
+          { fuente: 'F012', dato: 'Titulación en Bachillerato, centro y Comunidad de Madrid' },
+          { fuente: 'F002', pagina: '2', dato: 'Titulados en la convocatoria ordinaria, 2024-25' },
+          { fuente: 'F003', dato: 'Titulados en la convocatoria ordinaria, 2025-26' },
+        ]}
+        csv={['f012_titulacion_bachillerato.csv', 'brecha_titulacion_pau.csv']}
+      >
+        <Lineas
+          id="g-titulacion-bach"
+          titulo="Porcentaje de alumnos que titulan en Bachillerato: centro y Comunidad de Madrid según la CM, y centro en junio según el propio centro"
+          categorias={cursosTitBach.map(corto)}
+          series={[
+            { nombre: 'Centro (CM)', color: CENTRO, valores: [...titBach.map((r) => Number(r.titulacion_bach_centro_pct)), null, null] },
+            { nombre: 'Media CM', color: CM, valores: [...titBach.map((r) => Number(r.titulacion_bach_cm_pct)), null, null] },
+            { nombre: 'Centro, junio', color: CENTRO_CLARO, discontinua: true, valores: [...titBach.map(() => null), ...acceso.map((a) => a.tituladosPct)] },
+          ]}
+          min={60}
+          max={100}
+          marcas={[60, 70, 80, 90, 100]}
+          formato={(v) => pct(v, 2)}
+        />
+        <table slot="tabla">
+          <thead>
+            <tr><th>Curso</th><th>Centro, todas las conv. (CM)</th><th>Com. de Madrid</th><th>Centro, solo junio (centro)</th></tr>
+          </thead>
+          <tbody>
+            {titBach.map((r) => (
+              <tr>
+                <td>{r.curso_academico}</td>
+                <td>{pct(Number(r.titulacion_bach_centro_pct), 2)}</td>
+                <td>{pct(Number(r.titulacion_bach_cm_pct), 2)}</td>
+                <td>—</td>
+              </tr>
+            ))}
+            {brecha.map((r, i) => (
+              <tr>
+                <td>{r.curso_academico}</td>
+                <td>—</td>
+                <td>—</td>
+                <td>{pct(acceso[i].tituladosPct, 2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </BloqueDato>
+
+      <BloqueDato
+        id="piramide-bach"
+        estimacion
+        alerta={`En 2025-26 había ${pirUlt.total} alumnos en Bachillerato. Si en 2.º había al menos ${pirUlt.segundoMin}, en 1.º había como mucho ${pirUlt.primeroMax}: 2.º sería el curso más numeroso de la etapa.`}
+        titulo="¿Cuántos alumnos hay en 1.º y en 2.º de Bachillerato?"
+        cifra={`≤ ${pirUlt.primeroMax}`}
+        cifraTexto={`alumnos en 1.º de Bachillerato en ${pirUlt.curso}, frente a al menos ${pirUlt.segundoMin} en 2.º`}
+        descripcion="La Comunidad de Madrid publica los alumnos de toda la etapa, sin separar cursos. Con el mínimo de 2.º calculado en «¿Quién llega a la PAU?», a 1.º le queda como mucho el resto."
+        pregunta="¿Por qué habría más alumnos en 2.º que en 1.º de Bachillerato? ¿Cuántos repiten 2.º?"
+        leyenda={[
+          { nombre: '2.º de Bachillerato (mínimo)', color: CENTRO, estimada: true },
+          { nombre: '1.º de Bachillerato (máximo)', color: GRIS, estimada: true },
+        ]}
+        notas={[
+          'Cálculo nuestro a partir de dos datos publicados: la matrícula de la etapa (Comunidad de Madrid) y el mínimo de 2.º (cifras del centro y requisito del título para la PAU).',
+          'Un 2.º más numeroso que 1.º solo se explica si repiten muchos alumnos de 2.º, si llegan alumnos nuevos a 2.º o si el porcentaje de titulados que publica el centro se calcula sobre otra base. El número de alumnos por curso no es público.',
+          'La matrícula incluye todos los itinerarios del centro (Bachibac y Aula de Excelencia incluidos).',
+        ]}
+        citas={[
+          { fuente: 'F011', dato: 'Alumnos de Bachillerato por curso académico' },
+          { fuente: 'F003', dato: 'Titulados y presentados, 2025-26' },
+          { fuente: 'F002', pagina: '2', dato: 'Titulados y presentados, 2024-25' },
+        ]}
+        csv={['f011_matricula_por_etapa.csv', 'brecha_titulacion_pau.csv']}
+      >
+        <Apiladas
+          id="g-piramide-bach"
+          titulo="Reparto de los alumnos de Bachillerato entre 2.º (mínimo) y 1.º (máximo), 2024-25 y 2025-26"
+          categorias={piramide.map((p) => p.curso)}
+          tramos={[
+            { nombre: '2.º (mínimo)', color: CENTRO, minimo: true },
+            { nombre: '1.º (máximo)', color: GRIS, maximo: true },
+          ]}
+          valores={piramide.map((p) => [p.segundoMin, p.primeroMax])}
+        />
+        <table slot="tabla">
+          <thead>
+            <tr><th>Curso</th><th>Alumnos de Bachillerato</th><th>2.º (mínimo)</th><th>1.º (máximo)</th></tr>
+          </thead>
+          <tbody>
+            {piramide.map((p) => (
+              <tr><td>{p.curso}</td><td>{p.total}</td><td>≥ {p.segundoMin}</td><td>≤ {p.primeroMax}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </BloqueDato>
+
+      <BloqueDato
+        id="admision-bach"
+        titulo="Solicitudes de plaza en Bachillerato"
+        cifra={admBach[admBach.length - 1].presentadas}
+        cifraTexto={`solicitudes de plaza en Bachillerato en ${admBach[admBach.length - 1].curso_academico}; se admitieron ${admBach[admBach.length - 1].admitidas}`}
+        descripcion={`Las solicitudes casi se han duplicado desde ${admBach[0].curso_academico} (${admBach[0].presentadas}). Las presentan, en general, alumnos que vienen de otros centros: quien ya estudia en el instituto sigue en él sin pedir plaza.`}
+        pregunta="¿Cuántos alumnos de Bachillerato vienen de otros centros y qué resultados obtienen?"
+        leyenda={[
+          { nombre: 'Solicitudes presentadas', color: GRIS },
+          { nombre: 'Admitidas', color: CENTRO },
+        ]}
+        notas={[
+          'El centro tiene adscrito para 1.º de Bachillerato el colegio El Encinar, de Torrelodones, según el mismo buscador.',
+          'En la tabla también están las solicitudes de ESO.',
+        ]}
+        citas={[{ fuente: 'F012', dato: 'Proceso de admisión: solicitudes presentadas, admitidas y no admitidas' }]}
+        csv={['f012_admision_solicitudes.csv']}
+      >
+        <Barras
+          id="g-admision-bach"
+          titulo="Solicitudes de plaza en Bachillerato presentadas y admitidas, 2020-21 a 2024-25"
+          categorias={admBach.map((r) => corto(r.curso_academico))}
+          series={[
+            { nombre: 'Presentadas', color: GRIS, valores: admBach.map((r) => Number(r.presentadas)) },
+            { nombre: 'Admitidas', color: CENTRO, valores: admBach.map((r) => Number(r.admitidas)) },
+          ]}
+          max={180}
+        />
+        <table slot="tabla">
+          <thead>
+            <tr><th>Curso</th><th>Etapa</th><th>Presentadas</th><th>Admitidas</th><th>No admitidas</th></tr>
+          </thead>
+          <tbody>
+            {[...admBach, ...admEso].map((r) => (
+              <tr><td>{r.curso_academico}</td><td>{r.etapa}</td><td>{r.presentadas}</td><td>{r.admitidas}</td><td>{r.no_admitidas}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </BloqueDato>
+
+      <BloqueDato
+        id="expediente-pau"
+        titulo="Nota de Bachillerato y nota de la PAU"
+        cifra={dec(Math.max(...difExp), 2)}
+        cifraTexto={`puntos más en Bachillerato que en la PAU en ${conExpediente[difExp.indexOf(Math.max(...difExp))].curso_academico}, la mayor diferencia de la serie`}
+        descripcion={`Desde 2018-19 el centro publica la nota media de Bachillerato de sus alumnos junto a la de la PAU. La de Bachillerato es más alta en ${cursosExpMayor} de los ${conExpediente.length} cursos.`}
+        pregunta="¿Se corresponden las notas que pone el centro con las de una prueba externa?"
+        leyenda={[
+          { nombre: 'Nota media de Bachillerato', color: CENTRO },
+          { nombre: 'Nota media de la PAU (fase general)', color: CM },
+        ]}
+        notas={[
+          'El eje va de 6,5 a 8,5 puntos, no de 0 a 10, para que se vean las diferencias.',
+          'Las dos notas las publica el centro. Según su propio gráfico, la de la PAU la calcula el centro desde 2018-19; hasta 2017-18 era la de la Comunidad de Madrid.',
+          'Que la PAU salga algo más baja que el Bachillerato es habitual. Para saber si aquí la distancia es mayor haría falta la media regional de las dos notas, que no hemos encontrado publicada.',
+        ]}
+        citas={[
+          { fuente: 'F002', pagina: '5', dato: 'Notas medias de Bachillerato y PAU, 2013-14 a 2024-25' },
+          { fuente: 'F003', dato: 'Notas medias de Bachillerato y PAU, 2025-26' },
+        ]}
+        csv={['f002_notas_expediente_pau.csv']}
+      >
+        <Lineas
+          id="g-expediente-pau"
+          titulo="Nota media de Bachillerato y nota media de la PAU del IES Diego Velázquez según el centro, 2013-14 a 2025-26"
+          categorias={expediente.map((r) => corto(r.curso_academico))}
+          series={[
+            { nombre: 'Bachillerato', color: CENTRO, valores: expediente.map((r) => num(r.media_expediente_bach)) },
+            { nombre: 'PAU', color: CM, valores: expediente.map((r) => Number(r.media_pau_fase_general)) },
+          ]}
+          min={6.5}
+          max={8.5}
+          marcas={[6.5, 7, 7.5, 8, 8.5]}
+          formato={(v) => dec(v, 2)}
+        />
+        <table slot="tabla">
+          <thead>
+            <tr><th>Curso</th><th>Bachillerato</th><th>PAU</th><th>Diferencia</th><th>Fuente de la nota PAU (según el centro)</th></tr>
+          </thead>
+          <tbody>
+            {expediente.map((r) => (
+              <tr>
+                <td>{r.curso_academico}</td>
+                <td>{r.media_expediente_bach === '' ? '—' : dec(Number(r.media_expediente_bach), 2)}</td>
+                <td>{dec(Number(r.media_pau_fase_general), 2)}</td>
+                <td>{r.media_expediente_bach === '' ? '—' : dec(Number(r.media_expediente_bach) - Number(r.media_pau_fase_general), 2)}</td>
+                <td>{r.fuente_segun_centro}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </BloqueDato>
     </div>
   </section>
 
   <section class="container seccion" id="eso" aria-labelledby="eso-h">
-    <h2 id="eso-h">ESO</h2>
+    <h2 id="eso-h">Promoción y repetición en la ESO</h2>
     <p class="seccion__intro">
-      Promoción y resultados por grupo en 2.º de ESO, con datos agregados que ha recopilado el propio centro,
-      y titulación al final de la etapa según la Comunidad de Madrid. Ninguno contiene información de alumnos
-      concretos.
+      Cuántos alumnos pasan de curso, cuántos repiten y cuántos titulan, comparados con Madrid-Oeste y con la
+      Comunidad de Madrid cuando hay dato oficial. Ninguno contiene información de alumnos concretos.
     </p>
 
     <div class="rejilla">
@@ -294,7 +626,7 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
         titulo="Alumnos que pasan de curso en 1.º y 2.º de ESO"
         cifra={pct(Number(ultimaPromo.pct_promocion_2eso))}
         cifraTexto={`promociona en 2.º ESO en ${ultimaPromo.curso_academico} (${pct(Number(anteriorPromo.pct_promocion_2eso))} el curso anterior)`}
-        descripcion="Desde 2015-16 la promoción en 2.º de ESO se había movido entre el 89,5 % y el 97,3 %. En 2025-26 es la más baja desde 2014-15, mientras que en 1.º de ESO se mantiene en el 96 %."
+        descripcion="Desde 2015-16 la promoción en 2.º de ESO se había movido entre el 89,5 % y el 97,3 %. En 2025-26 es la más baja de la serie comparable, que empieza en 2015-16, mientras que en 1.º de ESO se mantiene en el 96 %."
         pregunta="¿Qué explica la caída de la promoción en 2.º de ESO en 2025-26?"
         leyenda={[
           { nombre: '1.º ESO', color: GRIS },
@@ -337,54 +669,91 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
       </BloqueDato>
 
       <BloqueDato
-        id="grupos-eso"
-        alerta={'Con el mismo curso y el mismo currículo, el porcentaje de alumnos con alguna materia suspensa al final va del 15 % en unos grupos al 40 % en otros.'}
-        titulo="Alumnos con alguna materia suspensa, por grupo de 2.º ESO"
-        cifra={`${dec(Math.min(...negFinal))}–${pct(Math.max(...negFinal))}`}
-        cifraTexto="al final de curso, según el grupo (2025-26)"
-        descripcion="En el mismo curso y con el mismo currículo, el porcentaje de alumnos con alguna materia suspensa varía mucho de un grupo a otro, tanto en la 2.ª evaluación como al final."
-        pregunta="¿Por qué los resultados varían tanto entre grupos del mismo curso?"
+        id="embudo-2eso"
+        titulo="2.º de ESO en 2025-26: quién pasa de curso"
+        cifra={String(promo2.noPromocionan)}
+        cifraTexto={`de ${promo2.total} alumnos de 2.º de ESO no pasaron de curso en 2025-26`}
+        descripcion={`De ${promo2.total} alumnos, ${promo2.sinPendientes} pasaron con todo aprobado, ${promo2.conPendientes} pasaron con una o dos materias pendientes y ${promo2.noPromocionan} no promocionaron.`}
+        pregunta="¿Qué medidas de apoyo recibió el alumnado que repite antes de decidir la repetición?"
         leyenda={[
-          { nombre: '2.ª evaluación', color: GRIS },
-          { nombre: 'Evaluación final', color: CENTRO },
+          { nombre: 'Promocionan con todo aprobado', color: CENTRO },
+          { nombre: 'Promocionan con 1 o 2 pendientes', color: CENTRO_CLARO },
+          { nombre: 'No promocionan', color: GRIS },
         ]}
-        notas={['Cada grupo tiene entre 20 y 26 alumnos, así que un alumno supone entre 4 y 5 puntos.']}
+        notas={[
+          `«Con todo aprobado» es la resta de los que promocionan (${promo2.sinPendientes + promo2.conPendientes}) menos los que lo hacen con pendientes (${promo2.conPendientes}).`,
+          `Las actas de la evaluación final de los seis grupos suman ${alumnosActas} alumnos, no ${promo2.total}; puede deberse a altas o bajas durante el curso.`,
+          `En esas actas hay ${conSuspensaFinal} alumnos con alguna materia suspensa, y ${promo2.conPendientes} + ${promo2.noPromocionan} = ${promo2.conPendientes + promo2.noPromocionan}. Cuadra si ${conSuspensaFinal - promo2.conPendientes - promo2.noPromocionan} alumnos pasaron con tres o más materias suspensas, algo que la norma permite de forma excepcional.`,
+        ]}
         citas={[
-          { fuente: 'F008', pagina: '15-20', dato: '2.ª evaluación' },
-          { fuente: 'F008', pagina: '21-26', dato: 'Evaluación final' },
-          { fuente: 'F008', pagina: '5 y 8', dato: 'Notas medias (tabla)' },
+          { fuente: 'F008', pagina: '27', dato: 'Alumnos, promocionan y con 1 o 2 pendientes' },
+          { fuente: 'F008', pagina: '21-26', dato: 'Actas de la evaluación final por grupo' },
         ]}
-        csv={['f008_evaluacion_negativa_por_grupo.csv', 'f008_medias_por_grupo.csv']}
+        csv={['f008_no_promocion_agregado_2025-26.csv', 'f008_final_materias_y_composicion_2eso.csv']}
       >
-        <Barras
-          id="g-grupos-eso"
-          titulo="Porcentaje de alumnos con alguna materia suspensa por grupo de 2.º ESO, 2.ª evaluación y final, curso 2025-26"
-          categorias={grupos.map(etiquetaGrupo)}
-          series={[
-            { nombre: '2.ª evaluación', color: GRIS, valores: grupos.map((g) => valor(negativa, g, '2a', 'pct_evaluados_negativamente')) },
-            { nombre: 'Final', color: CENTRO, valores: negFinal },
+        <Apiladas
+          id="g-embudo-2eso"
+          titulo="Alumnado de 2.º de ESO en 2025-26 según si promociona con todo aprobado, con pendientes o no promociona"
+          categorias={['2.º ESO']}
+          tramos={[
+            { nombre: 'Todo aprobado', color: CENTRO },
+            { nombre: 'Con pendientes', color: CENTRO_CLARO },
+            { nombre: 'No promocionan', color: GRIS },
           ]}
-          max={100}
-          formato={(v) => `${Math.round(v)}%`}
+          valores={[[promo2.sinPendientes, promo2.conPendientes, promo2.noPromocionan]]}
         />
         <table slot="tabla">
           <thead>
-            <tr><th>Grupo</th><th>1.ª ev.</th><th>2.ª ev.</th><th>Final</th><th>Nota media final</th></tr>
+            <tr><th>Alumnos</th><th>Promocionan con todo aprobado</th><th>Con 1 o 2 pendientes</th><th>No promocionan</th></tr>
           </thead>
           <tbody>
-            {grupos.map((g) => (
-              <tr>
-                <td>{etiquetaGrupo(g)}</td>
-                <td>{pct(valor(negativa, g, '1a', 'pct_evaluados_negativamente') as number, 2)}</td>
-                <td>{pct(valor(negativa, g, '2a', 'pct_evaluados_negativamente') as number, 2)}</td>
-                <td>{pct(valor(negativa, g, 'final', 'pct_evaluados_negativamente') as number, 2)}</td>
-                <td>{(valor(medias, g, 'final', 'media') as number).toLocaleString('es-ES', { minimumFractionDigits: 1 })}</td>
-              </tr>
-            ))}
+            <tr><td>{promo2.total}</td><td>{promo2.sinPendientes}</td><td>{promo2.conPendientes}</td><td>{promo2.noPromocionan}</td></tr>
           </tbody>
         </table>
       </BloqueDato>
 
+      <BloqueDato
+        id="idoneidad"
+        titulo="Alumnos en el curso que les corresponde por su edad"
+        cifra={pct(Number(idoDe('Torrelodones (municipio)').idoneidad_15_pct))}
+        cifraTexto={`de los alumnos de 15 años de Torrelodones estaba en 4.º de ESO en 2023-24 (${pct(Number(idoDe('DAT Madrid-Oeste').idoneidad_15_pct))} en Madrid-Oeste y ${pct(Number(idoDe('Comunidad de Madrid').idoneidad_15_pct))} en la Comunidad de Madrid)`}
+        descripcion="La tasa de idoneidad es el porcentaje de alumnos de cada edad que está en el curso que le corresponde. Quien ha repetido alguna vez deja de estarlo. En 2023-24, en Torrelodones era más alta que en la DAT Madrid-Oeste y que en el conjunto de la Comunidad a todas las edades de la ESO: allí se repite menos."
+        pregunta="¿Cuál es la tasa de idoneidad del propio instituto, sin los demás centros del municipio?"
+        leyenda={ambitosIdo.map((a) => ({ nombre: a.nombre + (a.discontinua ? ' (discontinua)' : ''), color: a.color }))}
+        notas={[
+          'Torrelodones incluye todos los centros del municipio (públicos, concertados y privados): no es un dato del instituto.',
+          'El eje empieza en el 70 %, no en el 0 %, para que se vean las diferencias. 12 años corresponde a 1.º de ESO y 15 años, a 4.º.',
+          'Datos provisionales. El último curso publicado es 2023-24. La serie completa desde 2014-15 está en el CSV.',
+        ]}
+        citas={[{ fuente: 'F013', dato: 'Tasas de idoneidad por edad, 2023-24' }]}
+        csv={['f013_idoneidad_eso_cm_oeste_torrelodones.csv']}
+      >
+        <Lineas
+          id="g-idoneidad"
+          titulo="Tasa de idoneidad por edad en 2023-24: Torrelodones, DAT Madrid-Oeste y Comunidad de Madrid"
+          categorias={edades.map((e) => `${e} años`)}
+          series={ambitosIdo.map((a) => ({
+            nombre: a.nombre,
+            color: a.color,
+            discontinua: a.discontinua,
+            valores: edades.map((e) => Number(idoDe(a.ambito)[`idoneidad_${e}_pct`])),
+          }))}
+          min={70}
+          max={100}
+          marcas={[70, 80, 90, 100]}
+          formato={(v) => pct(v)}
+        />
+        <table slot="tabla">
+          <thead>
+            <tr><th>Edad</th>{ambitosIdo.map((a) => <th>{a.nombre}</th>)}</tr>
+          </thead>
+          <tbody>
+            {edades.map((e) => (
+              <tr><td>{e} años</td>{ambitosIdo.map((a) => <td>{pct(Number(idoDe(a.ambito)[`idoneidad_${e}_pct`]))}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </BloqueDato>
       <BloqueDato
         id="titulacion-eso"
         titulo="Alumnos que obtienen el título de ESO"
@@ -432,28 +801,159 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
     </div>
   </section>
 
+  <section class="container seccion" id="grupos" aria-labelledby="grupos-h">
+    <h2 id="grupos-h">2.º de ESO, grupo a grupo</h2>
+    <p class="seccion__intro">
+      Resultados de cada grupo de 2.º de ESO en 2025-26, tomados de las actas de evaluación que recopiló el propio
+      centro. Son datos agregados: no contienen información de alumnos concretos.
+    </p>
+
+    <div class="rejilla">
+      <BloqueDato
+        id="grupos-eso"
+        alerta={`Al final de curso, el porcentaje de alumnos con alguna materia suspensa va del ${pct(Math.min(...negFinal))} en 2.º A y 2.º B al ${pct(Math.max(...negFinal))} en 2.º C y 2.º F. Pero los grupos no se forman igual: 2.º A y 2.º B reúnen a la sección de francés.`}
+        titulo="Alumnos con alguna materia suspensa, por grupo de 2.º ESO"
+        cifra={`${dec(Math.min(...negFinal))}–${pct(Math.max(...negFinal))}`}
+        cifraTexto="al final de curso, según el grupo (2025-26)"
+        descripcion="El porcentaje de alumnos con alguna materia suspensa varía mucho de un grupo a otro en las tres evaluaciones. Según las actas, todo el alumnado de 2.º A y 2.º B estudia francés como segunda lengua y ninguno cursa Refuerzo de Matemáticas. En 2.º C a 2.º F conviven Inglés e Inglés Avanzado, y hay alumnos con Refuerzo de Matemáticas."
+        pregunta="¿Con qué criterio se reparten los alumnos entre grupos? ¿Reciben más apoyo los grupos con más suspensos?"
+        leyenda={[
+          { nombre: '1.ª evaluación', color: GRIS_CLARO },
+          { nombre: '2.ª evaluación', color: GRIS },
+          { nombre: 'Evaluación final', color: CENTRO },
+        ]}
+        notas={['Cada grupo tiene entre 20 y 26 alumnos, así que un alumno supone entre 4 y 5 puntos.', 'La composición de cada grupo (francés, Inglés Avanzado, Refuerzo de Matemáticas) está en la tabla del gráfico siguiente.']}
+        citas={[
+          { fuente: 'F008', pagina: '9-14', dato: '1.ª evaluación' },
+          { fuente: 'F008', pagina: '15-20', dato: '2.ª evaluación' },
+          { fuente: 'F008', pagina: '21-26', dato: 'Evaluación final' },
+          { fuente: 'F008', pagina: '5 y 8', dato: 'Notas medias (tabla)' },
+        ]}
+        csv={['f008_evaluacion_negativa_por_grupo.csv', 'f008_medias_por_grupo.csv']}
+      >
+        <Barras
+          id="g-grupos-eso"
+          titulo="Porcentaje de alumnos con alguna materia suspensa por grupo de 2.º ESO, en la 1.ª, la 2.ª y la evaluación final, curso 2025-26"
+          categorias={grupos.map(etiquetaGrupo)}
+          series={[
+            { nombre: '1.ª evaluación', color: GRIS_CLARO, valores: grupos.map((g) => valor(negativa, g, '1a', 'pct_evaluados_negativamente')) },
+            { nombre: '2.ª evaluación', color: GRIS, valores: grupos.map((g) => valor(negativa, g, '2a', 'pct_evaluados_negativamente')) },
+            { nombre: 'Final', color: CENTRO, valores: negFinal },
+          ]}
+          max={100}
+          formato={(v) => `${Math.round(v)}%`}
+        />
+        <table slot="tabla">
+          <thead>
+            <tr><th>Grupo</th><th>1.ª ev.</th><th>2.ª ev.</th><th>Final</th><th>Nota media final</th></tr>
+          </thead>
+          <tbody>
+            {grupos.map((g) => (
+              <tr>
+                <td>{etiquetaGrupo(g)}</td>
+                <td>{pct(valor(negativa, g, '1a', 'pct_evaluados_negativamente') as number, 2)}</td>
+                <td>{pct(valor(negativa, g, '2a', 'pct_evaluados_negativamente') as number, 2)}</td>
+                <td>{pct(valor(negativa, g, 'final', 'pct_evaluados_negativamente') as number, 2)}</td>
+                <td>{(valor(medias, g, 'final', 'media') as number).toLocaleString('es-ES', { minimumFractionDigits: 1 })}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </BloqueDato>
+
+      <BloqueDato
+        id="materias-grupo"
+        titulo="Suspensos por materia y grupo en 2.º de ESO"
+        cifra={`${pct(Math.max(...materias.map((r) => pctMateria(r, 'in_matematicas'))))}`}
+        cifraTexto="de suspensos en Matemáticas en el grupo con más, al final de 2025-26"
+        descripcion="Cada casilla es el porcentaje de alumnos del grupo con insuficiente en esa materia en la evaluación final (junio de 2026). Cuanto más oscura, más suspensos. Matemáticas y Física y Química concentran los suspensos, sobre todo en 2.º E y 2.º F."
+        pregunta="¿Por qué Matemáticas y Física y Química suspenden tanto más en unos grupos que en otros?"
+        leyenda={[{ nombre: 'Más oscuro = más suspensos (el valor va en cada casilla)', color: CENTRO }]}
+        notas={[
+          'Cada grupo tiene entre 20 y 26 alumnos: un alumno supone entre 4 y 5 puntos.',
+          'En Inglés se suman «Inglés» e «Inglés Avanzado».',
+        ]}
+        citas={[{ fuente: 'F008', pagina: '21-26', dato: 'Actas de la evaluación final de cada grupo' }]}
+        csv={['f008_final_materias_y_composicion_2eso.csv']}
+      >
+        <Calor
+          id="g-materias-grupo"
+          titulo="Porcentaje de alumnos con insuficiente por materia y grupo de 2.º ESO en la evaluación final de 2025-26"
+          filas={materias.map((r) => etiquetaGrupo(r.grupo))}
+          columnas={columnasMaterias.map((c) => c.nombre)}
+          valores={materias.map((r) => columnasMaterias.map((c) => pctMateria(r, c.campo)))}
+          max={40}
+          formato={(v) => `${Math.round(v)}%`}
+        />
+        <table slot="tabla">
+          <thead>
+            <tr>
+              <th>Grupo</th><th>Alumnos</th>{columnasMaterias.map((c) => <th>{c.nombre} (IN)</th>)}
+              <th>Francés 2.ª lengua</th><th>Inglés Avanzado</th><th>Refuerzo de Matemáticas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {materias.map((r) => (
+              <tr>
+                <td>{etiquetaGrupo(r.grupo)}</td><td>{r.total_alumnos}</td>
+                {columnasMaterias.map((c) => <td>{r[c.campo]}</td>)}
+                <td>{r.alumnos_frances_2a_lengua}</td><td>{r.alumnos_ingles_avanzado}</td><td>{r.alumnos_refuerzo_matematicas}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </BloqueDato>
+    </div>
+  </section>
+
   <section class="container seccion" id="pendiente" aria-labelledby="pendiente-h">
     <h2 id="pendiente-h">Datos que todavía no son públicos</h2>
     <p class="seccion__intro">
       Algunas preguntas no se pueden responder con los datos publicados. Cuando estén disponibles, se
       añadirán aquí con su fuente.
     </p>
+    <h3 class="pendientes__tema">Bachillerato y PAU</h3>
     <ul class="pendientes">
       <li>
-        <strong>Alumnado matriculado en 2.º de Bachillerato y titulados en la evaluación extraordinaria.</strong>{' '}
+        <strong>Alumnos matriculados en 1.º y en 2.º de Bachillerato, y titulados en la evaluación extraordinaria.</strong>{' '}
         Permitiría pasar de los mínimos calculados a las cifras exactas, y saber cuántos se presentaron a la
         PAU de julio.
       </li>
+      <li>
+        <strong>Qué cuenta cada cifra de aptos y de nota media.</strong> Si el centro incluye la convocatoria
+        extraordinaria y a qué alumnos se refiere, para comparar con las cifras oficiales.
+      </li>
+    </ul>
+    <h3 class="pendientes__tema">Promoción y repetición en la ESO</h3>
+    <ul class="pendientes">
       <li>
         <strong>Continuidad entre cursos de la ESO.</strong> Cuántos alumnos siguen en el centro de 1.º a 4.º
         de ESO y cuántos repiten o se van.
       </li>
       <li>
-        <strong>Resultados de 3.º y 4.º de ESO y de Bachillerato por grupo</strong>, como los que ya hay de
-        2.º de ESO.
+        <strong>Promoción por curso en Madrid-Oeste.</strong> La Inspección envía a cada centro su promoción
+        frente a la de su zona y su DAT, pero esas medias no están publicadas.
       </li>
       <li>
+        <strong>Tasa de idoneidad del propio instituto</strong>, sin los demás centros del municipio.
+      </li>
+    </ul>
+    <h3 class="pendientes__tema">Resultados por grupo</h3>
+    <ul class="pendientes">
+      <li>
+        <strong>Resultados de 3.º y 4.º de ESO y de Bachillerato por grupo</strong>, como los que ya hay de
+        2.º de ESO, y el criterio con que se forman los grupos.
+      </li>
+    </ul>
+    <h3 class="pendientes__tema">Horas de clase y apoyos</h3>
+    <ul class="pendientes">
+      <li>
         <strong>Horas de clase sin profesor</strong> por grupo y cómo se cubren las guardias.
+      </li>
+      <li>
+        <strong>Alumnado con necesidades de apoyo y medidas aplicadas</strong> (adaptaciones de exámenes,
+        refuerzos, profesorado de apoyo), con datos agregados del centro. Las estadísticas oficiales solo las
+        dan para toda la Comunidad.
       </li>
     </ul>
   </section>
@@ -535,5 +1035,9 @@ const etiquetaGrupo = (g: string) => g.replace(/^2/, '2.º ');
   }
   .pendientes li {
     margin-bottom: 0.6rem;
+  }
+  .pendientes__tema {
+    margin: 1.25rem 0 0.25rem;
+    font-size: 1.15rem;
   }
 </style>

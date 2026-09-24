@@ -1,0 +1,31 @@
+{
+  "archivo": "f012_titulacion_bachillerato.csv",
+  "titulo": "Titulación en Bachillerato presencial, centro frente a CM, 2019-20 a 2023-24",
+  "fuentes": [
+    {
+      "id": "F012",
+      "documento": "Buscador de centros CM: ficha del IES (series ampliadas)",
+      "url": "https://gestiona.comunidad.madrid/wpad_pub/run/j/MostrarFichaCentro.icm?cdCentro=28037089",
+      "fecha_obtencion": "2026-09-24",
+      "carpeta_local": "data/2026-09-24_F012_buscador_centros_cm_series_ampliadas/"
+    }
+  ],
+  "metodo": "Lectura automatizada de la tabla del buscador",
+  "fecha_extraccion": "2026-09-24",
+  "estado": "publicable",
+  "notas": [],
+  "validacion": {
+    "validado": true,
+    "veces": 1,
+    "ultima": "2026-09-24",
+    "historial": [
+      {
+        "fecha": "2026-09-24",
+        "alcance": "completa",
+        "resultado": "ok",
+        "por": "Claude",
+        "nota": "Contra la captura 2026-09-24_resultados_pau_pct_aptos_titulacion_bach.png"
+      }
+    ]
+  }
+}

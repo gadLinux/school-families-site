@@ -1,0 +1,41 @@
+{
+  "archivo": "f012_pau_centro_oficial_vs_publicado.csv",
+  "titulo": "PAU según la CM (presentados, % aptos, nota media de aptos) frente a lo que publica el centro",
+  "fuentes": [
+    {
+      "id": "F012",
+      "documento": "Buscador de centros CM: ficha del IES (series ampliadas)",
+      "url": "https://gestiona.comunidad.madrid/wpad_pub/run/j/MostrarFichaCentro.icm?cdCentro=28037089",
+      "fecha_obtencion": "2026-09-24",
+      "carpeta_local": "data/2026-09-24_F012_buscador_centros_cm_series_ampliadas/"
+    },
+    {
+      "id": "F002",
+      "documento": "Resultados académicos: 2.º Bachillerato, titulación, notas medias y PAU (IES Diego Velázquez)",
+      "url": "https://site.educa.madrid.org/ies.velazquez.torrelodones/wp-content/uploads/ies.velazquez.torrelodones/2026/03/02-Resultados-2-Bach-y-EVAU.pdf",
+      "fecha_obtencion": "2026-07-10",
+      "carpeta_local": "data/2026-07-10_F002_resultados_evau_pdf_oficial/",
+      "paginas": "4, 5"
+    }
+  ],
+  "metodo": "Lectura automatizada de las tablas del buscador (Playwright, radios de la gráfica PAU) y transcripción de F002",
+  "fecha_extraccion": "2026-09-24",
+  "estado": "publicable",
+  "notas": [
+    "La media regional del % de aptos del buscador no es fiable (100 % y 66,67 %) y no se incluye."
+  ],
+  "validacion": {
+    "validado": true,
+    "veces": 1,
+    "ultima": "2026-09-24",
+    "historial": [
+      {
+        "fecha": "2026-09-24",
+        "alcance": "completa",
+        "resultado": "ok",
+        "por": "Claude",
+        "nota": "Presentados, % aptos y nota de aptos contra las capturas F012; publicado contra F002 p.4-5; nota fase general contra F011; diferencias recalculadas"
+      }
+    ]
+  }
+}

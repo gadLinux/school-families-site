@@ -177,6 +177,20 @@ Every chart links to its original source, with the exact page.
   `npm run sync-datos` refreshes them; the list of published files is in
   [`scripts/sync-datos.mjs`](scripts/sync-datos.mjs). Only add files that are
   public or aggregated, never personal data.
+- **Every CSV travels with its provenance.** Next to each `name.csv` there is a
+  `name.meta.json` (sources with document, page, URL and retrieval date;
+  extraction method; status; notes). `sync-datos` refuses to publish a CSV
+  without it, and `leerMeta()` in `src/lib/csv.ts` fails the build if one is
+  missing. Both files are published, so readers can download the provenance.
+- **Validation counter.** Each meta has a `validacion` block: `validado`
+  (the local copy was checked against the original source), `veces` (how many
+  times that check has been done) and `historial`. Extracting a figure is not
+  validating it: validation is a later, separate check against the original.
+  Register one with
+  `python3 scripts/util/registrar_validacion.py <file>.csv --alcance completa|parcial --resultado ok|discrepancia --nota "…"`
+  (from the research root), then `npm run sync-datos`. Each block on `/datos`
+  shows, next to its download, how many times its CSV has been checked.
+  `registrar_validacion.py --comprobar` lists any CSV without metadata.
 - Sources are listed in [`src/data/fuentes.ts`](src/data/fuentes.ts). The
   `Fxxx` codes match the research data register.
 - Charts are plain SVG rendered at build time
@@ -193,7 +207,7 @@ Each block follows the same template (`BloqueDato.astro`):
 4. Open question.
 5. Notes.
 6. Data table.
-7. Sources and CSV download.
+7. Sources and CSV download, with its provenance file and validation count.
 
 - **Bars start at 0.** A line chart may start higher (e.g. 90 %), but only
   with visible axis ticks and a note saying so.

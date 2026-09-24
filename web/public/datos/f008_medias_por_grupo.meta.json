@@ -1,0 +1,26 @@
+{
+  "archivo": "f008_medias_por_grupo.csv",
+  "titulo": "Nota media por grupo y evaluación",
+  "fuentes": [
+    {
+      "id": "F008",
+      "documento": "Recopilación estadística de 2.º ESO, curso 2025-2026 (IES Diego Velázquez, entregada a la familia el 17/07/2026)",
+      "url": null,
+      "fecha_obtencion": "2026-07-24",
+      "carpeta_local": "data/2026-07-24_F008_estadistica_interna_2eso_ies/",
+      "paginas": "3, 5, 8"
+    }
+  ],
+  "metodo": "Transcripción manual",
+  "fecha_extraccion": "2026-09-10",
+  "estado": "publicable",
+  "notas": [
+    "Escala cualitativa convertida por el centro; ver análisis F008."
+  ],
+  "validacion": {
+    "validado": false,
+    "veces": 0,
+    "ultima": null,
+    "historial": []
+  }
+}

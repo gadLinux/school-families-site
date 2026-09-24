@@ -1,0 +1,41 @@
+{
+  "archivo": "brecha_titulacion_pau.csv",
+  "titulo": "Titulados en junio, presentados y aprobados en la PAU (2024-25 y 2025-26)",
+  "fuentes": [
+    {
+      "id": "F002",
+      "documento": "Resultados académicos: 2.º Bachillerato, titulación, notas medias y PAU (IES Diego Velázquez)",
+      "url": "https://site.educa.madrid.org/ies.velazquez.torrelodones/wp-content/uploads/ies.velazquez.torrelodones/2026/03/02-Resultados-2-Bach-y-EVAU.pdf",
+      "fecha_obtencion": "2026-07-10",
+      "carpeta_local": "data/2026-07-10_F002_resultados_evau_pdf_oficial/",
+      "paginas": "2"
+    },
+    {
+      "id": "F003",
+      "documento": "Cartel «Resultados PAU 2026» (IES Diego Velázquez)",
+      "url": "https://site.educa.madrid.org/ies.velazquez.torrelodones/wp-content/uploads/ies.velazquez.torrelodones/2026/06/Resultados-PAU-2026_page-0001.jpg",
+      "fecha_obtencion": "2026-07-10",
+      "carpeta_local": "data/2026-07-10_F003_cartel_pau2026/"
+    }
+  ],
+  "metodo": "Transcripción manual de los carteles del centro",
+  "fecha_extraccion": "2026-09-10",
+  "estado": "publicable",
+  "notas": [
+    "brecha_pp = aprobados − titulados, en puntos."
+  ],
+  "validacion": {
+    "validado": true,
+    "veces": 1,
+    "ultima": "2026-09-24",
+    "historial": [
+      {
+        "fecha": "2026-09-24",
+        "alcance": "completa",
+        "resultado": "ok",
+        "por": "Claude",
+        "nota": "F002 p.2 (81,4 %, 145, 95,9 %) y F003 (64,25 %, 139, 97,1 %); brecha_pp recalculada"
+      }
+    ]
+  }
+}

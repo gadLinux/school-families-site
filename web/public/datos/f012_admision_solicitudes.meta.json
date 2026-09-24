@@ -1,0 +1,31 @@
+{
+  "archivo": "f012_admision_solicitudes.csv",
+  "titulo": "Solicitudes de admisión en ESO y Bachillerato, 2020-21 a 2024-25",
+  "fuentes": [
+    {
+      "id": "F012",
+      "documento": "Buscador de centros CM: ficha del IES (series ampliadas)",
+      "url": "https://gestiona.comunidad.madrid/wpad_pub/run/j/MostrarFichaCentro.icm?cdCentro=28037089",
+      "fecha_obtencion": "2026-09-24",
+      "carpeta_local": "data/2026-09-24_F012_buscador_centros_cm_series_ampliadas/"
+    }
+  ],
+  "metodo": "Lectura automatizada de la tabla del buscador",
+  "fecha_extraccion": "2026-09-24",
+  "estado": "publicable",
+  "notas": [],
+  "validacion": {
+    "validado": true,
+    "veces": 1,
+    "ultima": "2026-09-24",
+    "historial": [
+      {
+        "fecha": "2026-09-24",
+        "alcance": "completa",
+        "resultado": "ok",
+        "por": "Claude",
+        "nota": "Contra las capturas de admisión de Bachillerato y ESO (F012)"
+      }
+    ]
+  }
+}

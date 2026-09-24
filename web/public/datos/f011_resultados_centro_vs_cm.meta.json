@@ -1,0 +1,39 @@
+{
+  "archivo": "f011_resultados_centro_vs_cm.csv",
+  "titulo": "Titulación ESO y nota media PAU, centro frente a CM, más la nota que publica el centro",
+  "fuentes": [
+    {
+      "id": "F011",
+      "documento": "Buscador de centros CM: ficha del IES (series por defecto)",
+      "url": "https://gestiona.comunidad.madrid/wpad_pub/run/j/MostrarFichaCentro.icm?cdCentro=28037089",
+      "fecha_obtencion": "2026-09-22",
+      "carpeta_local": "data/2026-09-22_F011_buscador_centros_cm_ficha/"
+    },
+    {
+      "id": "F002",
+      "documento": "Resultados académicos: 2.º Bachillerato, titulación, notas medias y PAU (IES Diego Velázquez)",
+      "url": "https://site.educa.madrid.org/ies.velazquez.torrelodones/wp-content/uploads/ies.velazquez.torrelodones/2026/03/02-Resultados-2-Bach-y-EVAU.pdf",
+      "fecha_obtencion": "2026-07-10",
+      "carpeta_local": "data/2026-07-10_F002_resultados_evau_pdf_oficial/",
+      "paginas": "5"
+    }
+  ],
+  "metodo": "Lectura de las tablas del buscador (Playwright) y transcripción de F002 p.5",
+  "fecha_extraccion": "2026-09-22",
+  "estado": "publicable",
+  "notas": [],
+  "validacion": {
+    "validado": true,
+    "veces": 1,
+    "ultima": "2026-09-24",
+    "historial": [
+      {
+        "fecha": "2026-09-24",
+        "alcance": "completa",
+        "resultado": "ok",
+        "por": "Claude",
+        "nota": "Captura F011 (titulación ESO y nota PAU, centro y CM) y F002 p.5 (nota que publica el centro)"
+      }
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "archivo": "serie_historica_aptos.csv",
+  "titulo": "% de aptos en la PAU: centro frente a Comunidad de Madrid, 2013-14 a 2025-26",
+  "fuentes": [
+    {
+      "id": "F002",
+      "documento": "Resultados académicos: 2.º Bachillerato, titulación, notas medias y PAU (IES Diego Velázquez)",
+      "url": "https://site.educa.madrid.org/ies.velazquez.torrelodones/wp-content/uploads/ies.velazquez.torrelodones/2026/03/02-Resultados-2-Bach-y-EVAU.pdf",
+      "fecha_obtencion": "2026-07-10",
+      "carpeta_local": "data/2026-07-10_F002_resultados_evau_pdf_oficial/",
+      "paginas": "4"
+    },
+    {
+      "id": "F003",
+      "documento": "Cartel «Resultados PAU 2026» (IES Diego Velázquez)",
+      "url": "https://site.educa.madrid.org/ies.velazquez.torrelodones/wp-content/uploads/ies.velazquez.torrelodones/2026/06/Resultados-PAU-2026_page-0001.jpg",
+      "fecha_obtencion": "2026-07-10",
+      "carpeta_local": "data/2026-07-10_F003_cartel_pau2026/"
+    },
+    {
+      "id": "F009",
+      "documento": "Presentación de resultados PAU 2026 (Comunidad de Madrid)",
+      "url": "https://www.comunidad.madrid/docs/2026-06/presentacion-resultados-pau-2026_vd.pdf?VersionId=YZRTi4DMYdXw5a4lwBLMwbXQtZS2Zg.X",
+      "fecha_obtencion": "2026-09-22",
+      "carpeta_local": "data/2026-09-22_F009_cm_presentacion_resultados_pau2026/",
+      "paginas": "5"
+    }
+  ],
+  "metodo": "Transcripción manual de la tabla del gráfico de F002 p.4 y del gráfico de F009 p.5",
+  "fecha_extraccion": "2026-09-22",
+  "estado": "publicable",
+  "notas": [
+    "Media CM hasta 2017-18: la que publica el centro (sin verificar); desde 2018-19: F009 (aptos/matriculados).",
+    "En 2024-25 el centro publica 95,5 % para la CM; la oficial es 95,16 %."
+  ],
+  "validacion": {
+    "validado": true,
+    "veces": 1,
+    "ultima": "2026-09-24",
+    "historial": [
+      {
+        "fecha": "2026-09-24",
+        "alcance": "completa",
+        "resultado": "ok",
+        "por": "Claude",
+        "nota": "Las 13 filas contra F002 p.4 (centro y CM hasta 2017-18), F009 p.5 (CM desde 2018-19) y F003 (2025-26); brecha_pp recalculada"
+      }
+    ]
+  }
+}

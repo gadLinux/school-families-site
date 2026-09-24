@@ -6,6 +6,7 @@
  * para lectores de pantalla y para comprobar cada cifra.
  */
 import { fuentes, type Cita, type Fuente } from '../../data/fuentes';
+import { leerMeta, type MetaCsv } from '../../lib/csv';
 
 interface Props {
   id: string;
@@ -25,6 +26,23 @@ interface Props {
 
 const { id, titulo, cifra, cifraTexto, descripcion, pregunta, leyenda, citas, csv, estimacion, notas = [], alerta } =
   Astro.props;
+
+/** «2026-09-24» → «24/09/2026». */
+const fecha = (iso: string) => iso.split('-').reverse().join('/');
+
+/**
+ * Estado de validación de un CSV, leído de su meta. Extraer no es validar:
+ * solo cuenta el cotejo posterior de la copia local con la fuente original.
+ */
+function validacion(m: MetaCsv): { texto: string; completa: boolean } {
+  const v = m.validacion;
+  if (v.veces === 0) return { texto: 'pendiente de cotejar con la fuente', completa: false };
+  const veces = v.veces === 1 ? '1 vez' : `${v.veces} veces`;
+  const ultima = v.ultima ? `, la última el ${fecha(v.ultima)}` : '';
+  if (v.validado) return { texto: `cotejado con la fuente ${veces}${ultima}`, completa: true };
+  return { texto: `cotejado en parte con la fuente ${veces}${ultima}`, completa: false };
+}
+const descargas = csv.map((archivo) => ({ archivo, meta: archivo.replace(/\.csv$/, '.meta.json'), estado: validacion(leerMeta(archivo)) }));
 ---
 
 <article class:list={['bloque', { 'bloque--alerta': alerta }]} id={id} aria-labelledby={`${id}-h`}>
@@ -85,7 +103,7 @@ const { id, titulo, cifra, cifraTexto, descripcion, pregunta, leyenda, citas, cs
               {c.dato && <span class="bloque__dato">{c.dato}: </span>}
               {f.autor}, {f.url ? <a href={f.url} rel="noopener">{f.titulo}</a> : <em>{f.titulo}</em>} ({f.fecha})
               {c.pagina && <>, pág. {c.pagina}</>}.{' '}
-              {f.consultada && <span class="bloque__meta">Consultada el {f.consultada}.</span>}
+              {f.consultada && <span class="bloque__meta">Consultada el {f.consultada}.</span>}{' '}
               {f.nota && <span class="bloque__meta">{f.nota}</span>}{' '}
               <span class="bloque__codigo">[{f.id}]</span>
             </li>
@@ -96,19 +114,22 @@ const { id, titulo, cifra, cifraTexto, descripcion, pregunta, leyenda, citas, cs
     <p class="bloque__proponer">
       <a href="#propuestas" data-proponer={id}>💡 Proponer algo sobre este dato</a>
     </p>
-    <p class="bloque__descarga">
-      Descargar los datos:{' '}
+    <p class="bloque__descarga">Descargar los datos:</p>
+    <ul class="bloque__descargas">
       {
-        csv.map((archivo, i) => (
-          <>
-            {i > 0 && ' · '}
-            <a href={`/datos/${archivo}`} download>
-              {archivo}
-            </a>
-          </>
+        descargas.map((d) => (
+          <li>
+            <a href={`/datos/${d.archivo}`} download>
+              {d.archivo}
+            </a>{' '}
+            (<a href={`/datos/${d.meta}`}>procedencia</a>){' '}
+            <span class:list={['bloque__validacion', { 'bloque__validacion--ok': d.estado.completa }]}>
+              {d.estado.completa ? '✓' : '○'} {d.estado.texto}
+            </span>
+          </li>
         ))
       }
-    </p>
+    </ul>
   </footer>
 </article>
 
@@ -269,6 +290,19 @@ const { id, titulo, cifra, cifraTexto, descripcion, pregunta, leyenda, citas, cs
   }
   .bloque__dato {
     font-weight: 700;
+  }
+  .bloque__descargas {
+    margin: 0.15rem 0 0;
+    padding-left: 1.1rem;
+    /* Los nombres de CSV son largos y sin espacios: que puedan partirse en móvil. */
+    overflow-wrap: anywhere;
+  }
+  .bloque__validacion {
+    font-size: 0.8rem;
+    color: var(--debate-text);
+  }
+  .bloque__validacion--ok {
+    color: var(--accent);
   }
   .bloque__descarga {
     margin: 0.5rem 0 0;

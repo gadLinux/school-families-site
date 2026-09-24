@@ -1,0 +1,32 @@
+{
+  "archivo": "f008_evaluacion_negativa_por_grupo.csv",
+  "titulo": "% de alumnos evaluados negativamente en alguna materia, por grupo y evaluación",
+  "fuentes": [
+    {
+      "id": "F008",
+      "documento": "Recopilación estadística de 2.º ESO, curso 2025-2026 (IES Diego Velázquez, entregada a la familia el 17/07/2026)",
+      "url": null,
+      "fecha_obtencion": "2026-07-24",
+      "carpeta_local": "data/2026-07-24_F008_estadistica_interna_2eso_ies/",
+      "paginas": "9-26"
+    }
+  ],
+  "metodo": "Transcripción manual de las actas",
+  "fecha_extraccion": "2026-09-10",
+  "estado": "publicable",
+  "notas": [],
+  "validacion": {
+    "validado": false,
+    "veces": 1,
+    "ultima": "2026-09-24",
+    "historial": [
+      {
+        "fecha": "2026-09-24",
+        "alcance": "parcial",
+        "resultado": "ok",
+        "por": "Claude",
+        "nota": "Solo filas de la evaluación final (pp. 21-26); 1.ª y 2.ª sin cotejar"
+      }
+    ]
+  }
+}

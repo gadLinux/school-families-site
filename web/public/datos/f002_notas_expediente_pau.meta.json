@@ -1,0 +1,33 @@
+{
+  "archivo": "f002_notas_expediente_pau.csv",
+  "titulo": "Nota media de Bachillerato y de la PAU según el centro, 2013-14 a 2025-26",
+  "fuentes": [
+    {
+      "id": "F002",
+      "documento": "Resultados académicos: 2.º Bachillerato, titulación, notas medias y PAU (IES Diego Velázquez)",
+      "url": "https://site.educa.madrid.org/ies.velazquez.torrelodones/wp-content/uploads/ies.velazquez.torrelodones/2026/03/02-Resultados-2-Bach-y-EVAU.pdf",
+      "fecha_obtencion": "2026-07-10",
+      "carpeta_local": "data/2026-07-10_F002_resultados_evau_pdf_oficial/",
+      "paginas": "2, 5"
+    },
+    {
+      "id": "F003",
+      "documento": "Cartel «Resultados PAU 2026» (IES Diego Velázquez)",
+      "url": "https://site.educa.madrid.org/ies.velazquez.torrelodones/wp-content/uploads/ies.velazquez.torrelodones/2026/06/Resultados-PAU-2026_page-0001.jpg",
+      "fecha_obtencion": "2026-07-10",
+      "carpeta_local": "data/2026-07-10_F003_cartel_pau2026/"
+    }
+  ],
+  "metodo": "Transcripción manual de la tabla del gráfico de F002 p.5 y del cartel F003",
+  "fecha_extraccion": "2026-09-24",
+  "estado": "publicable",
+  "notas": [
+    "Según la leyenda de F002 p.5, la nota PAU es de la CM hasta 2017-18 y del centro desde 2018-19."
+  ],
+  "validacion": {
+    "validado": false,
+    "veces": 0,
+    "ultima": null,
+    "historial": []
+  }
+}

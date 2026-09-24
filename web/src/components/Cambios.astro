@@ -1,0 +1,111 @@
+---
+/**
+ * Cambios de las últimas versiones (src/data/cambios.ts). Las correcciones de
+ * datos van primero y destacadas: es lo que más importa a quien ya leyó una
+ * cifra anterior.
+ */
+import { marked } from 'marked';
+import { versiones } from '../data/cambios';
+
+interface Props {
+  cuantas?: number;
+}
+const { cuantas = 2 } = Astro.props;
+
+/** Textos propios (no de usuarios): solo enlaces y énfasis en línea. */
+const md = (t: string) => marked.parseInline(t) as string;
+
+const apartados = [
+  { campo: 'correcciones', titulo: 'Correcciones de datos', clase: 'cambios__apartado--correccion' },
+  { campo: 'anadido', titulo: 'Añadido', clase: '' },
+  { campo: 'modificado', titulo: 'Modificado', clase: '' },
+  { campo: 'verificaciones', titulo: 'Verificaciones', clase: '' },
+] as const;
+---
+
+<section class="container cambios" aria-labelledby="cambios-titulo">
+  <h2 id="cambios-titulo">Qué ha cambiado</h2>
+  <p class="cambios__intro">
+    Lo nuevo de las dos últimas versiones y, sobre todo, cualquier dato que hayamos corregido. Si una cifra estaba
+    mal, aquí decimos cuál y por qué.
+  </p>
+  {
+    versiones.slice(0, cuantas).map((v, i) => (
+      <details class="cambios__version" open={i === 0}>
+        <summary>
+          <span class="cambios__fecha">{v.fecha}</span>
+          {v.commit && <span class="cambios__commit">versión {v.commit}</span>}
+          <span class="cambios__resumen">{v.resumen}</span>
+        </summary>
+        {apartados.map((a) =>
+          v[a.campo].length ? (
+            <div class:list={['cambios__apartado', a.clase]}>
+              <h3>
+                {a.titulo} ({v[a.campo].length})
+              </h3>
+              <ul>
+                {v[a.campo].map((t) => (
+                  <li set:html={md(t)} />
+                ))}
+              </ul>
+            </div>
+          ) : null,
+        )}
+      </details>
+    ))
+  }
+</section>
+
+<style>
+  .cambios {
+    margin-bottom: 3rem;
+  }
+  .cambios__intro {
+    max-width: 44rem;
+    color: var(--muted);
+  }
+  .cambios__version {
+    margin-top: 0.75rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .cambios__version summary {
+    cursor: pointer;
+  }
+  .cambios__fecha {
+    font-weight: 700;
+  }
+  .cambios__commit {
+    margin-left: 0.5rem;
+    font-family: ui-monospace, monospace;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .cambios__resumen {
+    display: block;
+    color: var(--muted);
+  }
+  .cambios__apartado h3 {
+    margin: 1rem 0 0.25rem;
+    font-size: 1.05rem;
+  }
+  .cambios__apartado ul {
+    margin: 0;
+    padding-left: 1.1rem;
+  }
+  .cambios__apartado li {
+    margin-bottom: 0.35rem;
+  }
+  .cambios__apartado--correccion {
+    margin-top: 1rem;
+    padding: 0.25rem 0.9rem 0.6rem;
+    border-left: 4px solid var(--shared);
+    background: color-mix(in srgb, var(--shared) 7%, var(--surface));
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+  .cambios__apartado--correccion h3 {
+    color: var(--shared);
+  }
+</style>
